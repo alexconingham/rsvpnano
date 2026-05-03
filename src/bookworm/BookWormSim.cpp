@@ -26,21 +26,23 @@ void BookWormSim::tick(BookWormState &s, uint32_t deltaMs) {
   s.boredom = static_cast<uint16_t>(std::min<uint32_t>(s.boredom + boredomDelta, kNeedMax));
 }
 
-void BookWormSim::onReadingWords(BookWormState &s, uint32_t wordsAdvanced) {
+void BookWormSim::onReadingWords(BookWormState &s, uint32_t wordsAdvanced, bool applyNeedsEffect) {
   if (!s.hatched || wordsAdvanced == 0) {
     return;
   }
-  const uint32_t hLoss = static_cast<uint32_t>(kReadingHungerHealPermille) * wordsAdvanced;
-  const uint32_t bLoss = static_cast<uint32_t>(kReadingBoredomHealPermille) * wordsAdvanced;
-  if (s.hunger > hLoss) {
-    s.hunger = static_cast<uint16_t>(s.hunger - hLoss);
-  } else {
-    s.hunger = 0;
-  }
-  if (s.boredom > bLoss) {
-    s.boredom = static_cast<uint16_t>(s.boredom - bLoss);
-  } else {
-    s.boredom = 0;
+  if (applyNeedsEffect) {
+    const uint32_t hLoss = static_cast<uint32_t>(kReadingHungerHealPermille) * wordsAdvanced;
+    const uint32_t bLoss = static_cast<uint32_t>(kReadingBoredomHealPermille) * wordsAdvanced;
+    if (s.hunger > hLoss) {
+      s.hunger = static_cast<uint16_t>(s.hunger - hLoss);
+    } else {
+      s.hunger = 0;
+    }
+    if (s.boredom > bLoss) {
+      s.boredom = static_cast<uint16_t>(s.boredom - bLoss);
+    } else {
+      s.boredom = 0;
+    }
   }
   s.totalWordsRead += wordsAdvanced;
   syncEvolution(s);

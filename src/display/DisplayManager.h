@@ -96,6 +96,8 @@ class DisplayManager {
   void renderProgress(const String &title, const String &line1 = "", const String &line2 = "",
                       int progressPercent = -1);
   void renderCompanion(const bookworm::BookWormView &view, const String &timeText);
+  /// Pixel chunk in virtual coordinates (used by procedural companion art).
+  void plotVirtualFill(int x, int y, int w, int h, uint16_t rgb565);
 
  private:
   bool initPanel();

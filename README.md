@@ -26,6 +26,7 @@ This tree extends upstream RSVP Nano with a **Book Worm** desk companion:
 - **Feed / Play / Pet**: tap the lower third of the companion screen (three zones, left to right) to improve hunger or boredom when you are not reading. Reading while playing still heals needs faster.
 - Pet data is stored in NVS namespace `bworm` (separate from reading preferences). Time-of-day uses SNTP after a successful Wi‑Fi connection (for example during **Firmware update** / OTA). Until sync, the clock shows `--:--`.
 - For **OTA from your own GitHub fork**, set `github_owner` and `github_repo` in `/config/ota.conf` on the SD card (see `docs/ota.conf.example`) or adjust the defaults in `src/update/OtaUpdater.h` before building. The helper `tools/fetch_release_firmware.py` accepts `--repo owner/name` for pulling release binaries into `web/firmware/`.
+- Companion **creature** is **procedural** (mirrored random fill in an ellipse, inspired by [Dave Bollinger–style pixel spaceships](https://web.archive.org/web/20080228054410/http://www.davebollinger.com/works/pixelspaceships/) and [pixel-sprite-generator](https://github.com/zfedoran/pixel-sprite-generator)): deterministic from pet name, palette, and evolution stage. **Settings → Book Worm**: **Hibernate** (pause sim + hide sprite), **Boot: companion / Boot: book**. Optional dev firmware: `pio run -e waveshare_esp32s3_usb_msc_bwdev` enables **Dev: Regenerate pet** and **Dev: +Evolution** for testing.
 
 ## Getting Started
 
@@ -366,6 +367,15 @@ pio test -e native_bookworm_test
 ```
 
 **Host compiler:** the `native` PlatformIO environments invoke `gcc` / `g++`. On Windows, install a toolchain that provides them on your `PATH` (for example [MSYS2](https://www.msys2.org/) MinGW-w64, or run tests under WSL/Linux). If those commands are missing, the build fails with `'g++' is not recognized`.
+
+**Companion art (PC preview):** build `native_companion_preview` and run the small program to dump a 640×172 **PPM** of the procedural creature (same draw routine as the device, no firmware flash):
+
+```sh
+pio run -e native_companion_preview
+.pio/build/native_companion_preview/program glibbleworm 3 2 0 preview.ppm
+```
+
+Open `preview.ppm` in a viewer that supports PPM (GIMP, IrfanView with plugin, some browsers via drag-and-drop). Arguments: `name`, `styleId` 0–7, evolution `0–3`, flash `0|1`, optional output path (default `companion_preview.ppm`).
 
 ## Desktop Converter Fallback
 

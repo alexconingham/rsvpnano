@@ -16,6 +16,7 @@
 #include "display/EmbeddedSerifFont70.h"
 #include "display/axs15231b.h"
 #include "text/LatinText.h"
+#include "bookworm/BookWormCreatureDraw.h"
 
 namespace {
 constexpr int kDisplayWidth = BoardConfig::DISPLAY_WIDTH;
@@ -1323,6 +1324,10 @@ void DisplayManager::fillVirtualRect(int x, int y, int width, int height, uint16
       virtualFrame_[row * kVirtualBufferWidth + col] = panel;
     }
   }
+}
+
+void DisplayManager::plotVirtualFill(int x, int y, int w, int h, uint16_t rgb565) {
+  fillVirtualRect(x, y, w, h, rgb565);
 }
 
 void DisplayManager::drawSerifTextAt(const String &text, int x, int y, uint16_t color,
@@ -2795,6 +2800,10 @@ void DisplayManager::renderProgress(const String &title, const String &line1, co
   flushScaledFrame(scale, virtualWidth, virtualHeight);
 }
 
+static void companionCreaturePlot(void *ctx, int x, int y, int w, int h, uint16_t c) {
+  static_cast<DisplayManager *>(ctx)->plotVirtualFill(x, y, w, h, c);
+}
+
 void DisplayManager::renderCompanion(const bookworm::BookWormView &view, const String &timeText) {
   String renderKey = "cmp|";
   renderKey += view.name;
@@ -2812,6 +2821,8 @@ void DisplayManager::renderCompanion(const bookworm::BookWormView &view, const S
   renderKey += view.moodLine;
   renderKey += "|f:";
   renderKey += String(view.flashDeskAction ? 1 : 0);
+  renderKey += "|z:";
+  renderKey += String(view.hibernate ? 1 : 0);
   renderKey += "|bg:";
   renderKey += batteryLabel_;
   renderKey += "|d:";
@@ -2833,7 +2844,13 @@ void DisplayManager::renderCompanion(const bookworm::BookWormView &view, const S
       0xF813, 0x07E8, 0x281F, 0xFFE5, 0xF81F, 0x05FF, 0xFDA0, 0xDEFB,
   };
   const uint16_t petRgb = kStyleColors[view.styleId % 8];
-  const uint16_t petDraw = view.flashDeskAction ? focusColor() : petRgb;
+
+  auto shade565 = [](uint16_t c, int num, int den) -> uint16_t {
+    uint32_t r = ((c >> 11) & 0x1Fu) * static_cast<uint32_t>(num) / static_cast<uint32_t>(den);
+    uint32_t g = ((c >> 5) & 0x3Fu) * static_cast<uint32_t>(num) / static_cast<uint32_t>(den);
+    uint32_t b = (c & 0x1Fu) * static_cast<uint32_t>(num) / static_cast<uint32_t>(den);
+    return static_cast<uint16_t>((r << 11) | (g << 5) | b);
+  };
 
   const String petLabel = "Lv" + String(view.evolutionStage);
   drawTinyTextAt(petLabel, 8, 4, dimColor(), kTinyScale);
@@ -2846,15 +2863,20 @@ void DisplayManager::renderCompanion(const bookworm::BookWormView &view, const S
 
   const int cx = virtualWidth / 2;
   const int cy = 72;
-  for (int dy = -14; dy <= 14; ++dy) {
-    const int halfW = 38 - (abs(dy) * 36) / 15;
-    if (halfW > 0) {
-      fillVirtualRect(cx - halfW, cy + dy, halfW * 2, 1, petDraw);
-    }
+
+  if (view.hibernate) {
+    drawTinyTextCentered("Zzz", cy, dimColor(), kTinyScale);
+  } else {
+    bookworm::CreatureStyleColors pal;
+    pal.body = petRgb;
+    pal.shadow = shade565(petRgb, 2, 3);
+    pal.highlight = shade565(petRgb, 5, 4);
+    pal.accent = focusColor();
+    pal.eye = 0xFFDF;
+    pal.eyePupil = 0x2965;
+    bookworm::drawProcCreature(companionCreaturePlot, this, cx, cy, pal, view.name.c_str(),
+                               view.styleId, view.evolutionStage, view.flashDeskAction);
   }
-  fillVirtualRect(cx - 6, cy - 20, 12, 10, petDraw);
-  fillVirtualRect(cx - 26, cy - 8, 8, 6, petDraw);
-  fillVirtualRect(cx + 18, cy - 8, 8, 6, petDraw);
 
   const int meterY = 118;
   const int maxBar = 220;

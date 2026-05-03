@@ -67,6 +67,11 @@ enum class UiText : uint8_t {
   RsvpMode,
   ScrollMode,
   Desk,
+  BookWorm,
+  Hibernate,
+  BootOpenCompanion,
+  BootOpenBook,
+  PetResting,
 };
 
 namespace Localization {
@@ -214,6 +219,16 @@ inline const char *text(UiLanguage language, UiText key) {
           return "Scroll pagina";
         case UiText::Desk:
           return "Escritorio";
+        case UiText::BookWorm:
+          return "Gusano libro";
+        case UiText::Hibernate:
+          return "Hibernar";
+        case UiText::BootOpenCompanion:
+          return "Inicio: companero";
+        case UiText::BootOpenBook:
+          return "Inicio: libro";
+        case UiText::PetResting:
+          return "Descansando";
       }
       break;
     case UiLanguage::French:
@@ -326,6 +341,16 @@ inline const char *text(UiLanguage language, UiText key) {
           return "Defilement page";
         case UiText::Desk:
           return "Bureau";
+        case UiText::BookWorm:
+          return "Livre-ver";
+        case UiText::Hibernate:
+          return "Hiberner";
+        case UiText::BootOpenCompanion:
+          return "Demarrer: compagnon";
+        case UiText::BootOpenBook:
+          return "Demarrer: livre";
+        case UiText::PetResting:
+          return "Au repos";
       }
       break;
     case UiLanguage::German:
@@ -438,6 +463,16 @@ inline const char *text(UiLanguage language, UiText key) {
           return "Seiten-Scroll";
         case UiText::Desk:
           return "Schreibtisch";
+        case UiText::BookWorm:
+          return "Buchwurm";
+        case UiText::Hibernate:
+          return "Ruhen";
+        case UiText::BootOpenCompanion:
+          return "Start: Begleiter";
+        case UiText::BootOpenBook:
+          return "Start: Buch";
+        case UiText::PetResting:
+          return "Ruht";
       }
       break;
     case UiLanguage::Romanian:
@@ -550,6 +585,16 @@ inline const char *text(UiLanguage language, UiText key) {
           return "Derulare pagina";
         case UiText::Desk:
           return "Birou";
+        case UiText::BookWorm:
+          return "Vierme carte";
+        case UiText::Hibernate:
+          return "Hibernare";
+        case UiText::BootOpenCompanion:
+          return "Pornire: animal";
+        case UiText::BootOpenBook:
+          return "Pornire: carte";
+        case UiText::PetResting:
+          return "Se odihneste";
       }
       break;
     case UiLanguage::Polish:
@@ -662,6 +707,16 @@ inline const char *text(UiLanguage language, UiText key) {
           return "Scroll strony";
         case UiText::Desk:
           return "Biurko";
+        case UiText::BookWorm:
+          return "Robak ksiazkowy";
+        case UiText::Hibernate:
+          return "Usypianie";
+        case UiText::BootOpenCompanion:
+          return "Start: towarzysz";
+        case UiText::BootOpenBook:
+          return "Start: ksiazka";
+        case UiText::PetResting:
+          return "Odpoczywa";
       }
       break;
     case UiLanguage::English:
@@ -775,6 +830,16 @@ inline const char *text(UiLanguage language, UiText key) {
           return "Page scroll";
         case UiText::Desk:
           return "Desk";
+        case UiText::BookWorm:
+          return "Book Worm";
+        case UiText::Hibernate:
+          return "Hibernate";
+        case UiText::BootOpenCompanion:
+          return "Boot: companion";
+        case UiText::BootOpenBook:
+          return "Boot: book";
+        case UiText::PetResting:
+          return "Resting";
       }
       break;
   }

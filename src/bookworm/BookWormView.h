@@ -14,6 +14,7 @@ struct BookWormView {
   uint16_t boredomPermille = 0;
   String moodLine;
   bool flashDeskAction = false;
+  bool hibernate = false;
 };
 
 }  // namespace bookworm

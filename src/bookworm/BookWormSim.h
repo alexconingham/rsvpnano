@@ -12,7 +12,9 @@ class BookWormSim {
   static void tick(BookWormState &s, uint32_t deltaMs);
 
   /// Reward for words read while actively playing RSVP (typically state Playing).
-  static void onReadingWords(BookWormState &s, uint32_t wordsAdvanced);
+  /// When applyNeedsEffect is false (e.g. pet hibernating), words still count for evolution but
+  /// hunger/boredom are unchanged.
+  static void onReadingWords(BookWormState &s, uint32_t wordsAdvanced, bool applyNeedsEffect = true);
 
   static void deskFeed(BookWormState &s);
   static void deskPlay(BookWormState &s);

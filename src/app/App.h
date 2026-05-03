@@ -61,6 +61,7 @@ class App {
     SettingsHome,
     SettingsDisplay,
     SettingsPacing,
+    SettingsBookworm,
     WifiSettings,
     WifiNetworks,
     TextEntry,
@@ -170,6 +171,7 @@ class App {
   void selectMenuItem(uint32_t nowMs);
   void openSettings();
   void selectSettingsItem(uint32_t nowMs);
+  void selectBookwormSettingsItem(uint32_t nowMs);
   void openWifiSettings();
   void selectWifiSettingsItem(uint32_t nowMs);
   void openTypographyTuning();
@@ -361,6 +363,8 @@ class App {
   DisplayManager::TypographyConfig typographyConfig_;
   bookworm::BookWormStore bookwormStore_;
   bookworm::BookWormState bookwormState_{};
+  bool bookwormHibernate_ = false;
+  bool bootToBook_ = false;
   uint32_t lastBookwormTickMs_ = 0;
   uint32_t lastBookwormPersistMs_ = 0;
   uint32_t companionDeskFlashUntilMs_ = 0;
