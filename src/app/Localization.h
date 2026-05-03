@@ -66,6 +66,7 @@ enum class UiText : uint8_t {
   Standard,
   RsvpMode,
   ScrollMode,
+  Desk,
 };
 
 namespace Localization {
@@ -211,6 +212,8 @@ inline const char *text(UiLanguage language, UiText key) {
           return "RSVP";
         case UiText::ScrollMode:
           return "Scroll pagina";
+        case UiText::Desk:
+          return "Escritorio";
       }
       break;
     case UiLanguage::French:
@@ -321,6 +324,8 @@ inline const char *text(UiLanguage language, UiText key) {
           return "RSVP";
         case UiText::ScrollMode:
           return "Defilement page";
+        case UiText::Desk:
+          return "Bureau";
       }
       break;
     case UiLanguage::German:
@@ -431,6 +436,8 @@ inline const char *text(UiLanguage language, UiText key) {
           return "RSVP";
         case UiText::ScrollMode:
           return "Seiten-Scroll";
+        case UiText::Desk:
+          return "Schreibtisch";
       }
       break;
     case UiLanguage::Romanian:
@@ -541,6 +548,8 @@ inline const char *text(UiLanguage language, UiText key) {
           return "RSVP";
         case UiText::ScrollMode:
           return "Derulare pagina";
+        case UiText::Desk:
+          return "Birou";
       }
       break;
     case UiLanguage::Polish:
@@ -651,6 +660,8 @@ inline const char *text(UiLanguage language, UiText key) {
           return "RSVP";
         case UiText::ScrollMode:
           return "Scroll strony";
+        case UiText::Desk:
+          return "Biurko";
       }
       break;
     case UiLanguage::English:
@@ -762,6 +773,8 @@ inline const char *text(UiLanguage language, UiText key) {
           return "RSVP";
         case UiText::ScrollMode:
           return "Page scroll";
+        case UiText::Desk:
+          return "Desk";
       }
       break;
   }

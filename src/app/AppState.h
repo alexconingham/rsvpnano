@@ -2,6 +2,7 @@
 
 enum class AppState {
   Booting,
+  Companion,
   Paused,
   Playing,
   Menu,

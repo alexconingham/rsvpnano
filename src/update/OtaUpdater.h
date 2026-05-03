@@ -10,6 +10,7 @@ class OtaUpdater {
   struct Config {
     String wifiSsid;
     String wifiPassword;
+    // Forks: override via /config/ota.conf (github_owner, github_repo) or change defaults here.
     String githubOwner = "ionutdecebal";
     String githubRepo = "rsvpnano";
     String assetName = "rsvp-nano-ota.bin";

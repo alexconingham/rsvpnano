@@ -17,6 +17,16 @@ RSVP Nano is an open-source ESP32-S3 reading device for showing text one word at
 - USB mass-storage mode for copying books to the SD card.
 - Browser-based firmware installation plus in-browser library conversion, sidecar cleanup, and SD-card sync.
 
+## Book Worm (this fork)
+
+This tree extends upstream RSVP Nano with a **Book Worm** desk companion:
+
+- After boot, the device shows the companion (pet placeholder, needs meters, clock) instead of opening the last book immediately. Use **Resume** in the menu to load your saved book (or the first library book / demo text).
+- **Desk** in the main menu returns home: saves progress, unloads the book from RAM, and shows the companion again.
+- **Feed / Play / Pet**: tap the lower third of the companion screen (three zones, left to right) to improve hunger or boredom when you are not reading. Reading while playing still heals needs faster.
+- Pet data is stored in NVS namespace `bworm` (separate from reading preferences). Time-of-day uses SNTP after a successful Wi‑Fi connection (for example during **Firmware update** / OTA). Until sync, the clock shows `--:--`.
+- For **OTA from your own GitHub fork**, set `github_owner` and `github_repo` in `/config/ota.conf` on the SD card (see `docs/ota.conf.example`) or adjust the defaults in `src/update/OtaUpdater.h` before building. The helper `tools/fetch_release_firmware.py` accepts `--repo owner/name` for pulling release binaries into `web/firmware/`.
+
 ## Getting Started
 
 ### Flash From The Browser
@@ -348,6 +358,14 @@ pio test -e native_test
 ```
 
 Tests live in `test/test_pacing/` and cover word duration calculation (length tiers, syllable complexity, punctuation pauses, abbreviation detection, pacing scale), WPM clamping, and seek/scrub behaviour. A minimal `Arduino.h` shim in `test/support/` lets `ReadingLoop.cpp` compile on the host without the ESP32 SDK.
+
+Book Worm simulation tests (`test/test_bookworm/`) run with:
+
+```sh
+pio test -e native_bookworm_test
+```
+
+**Host compiler:** the `native` PlatformIO environments invoke `gcc` / `g++`. On Windows, install a toolchain that provides them on your `PATH` (for example [MSYS2](https://www.msys2.org/) MinGW-w64, or run tests under WSL/Linux). If those commands are missing, the build fails with `'g++' is not recognized`.
 
 ## Desktop Converter Fallback
 

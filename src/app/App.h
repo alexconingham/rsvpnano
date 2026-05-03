@@ -6,6 +6,9 @@
 
 #include "app/AppState.h"
 #include "app/Localization.h"
+#include "bookworm/BookWormState.h"
+#include "bookworm/BookWormStore.h"
+#include "bookworm/BookWormView.h"
 #include "display/DisplayManager.h"
 #include "input/ButtonHandler.h"
 #include "input/TouchHandler.h"
@@ -271,6 +274,14 @@ class App {
   DisplayManager::TypographyConfig effectiveTypographyConfig() const;
   uint32_t currentReaderContentToken() const;
 
+  void maybeTickBookworm(uint32_t nowMs);
+  void maybePersistBookworm(uint32_t nowMs, bool force);
+  bookworm::BookWormView buildBookwormView(uint32_t nowMs) const;
+  void renderCompanionScreen(uint32_t nowMs);
+  bool prepareBookForReading(uint32_t nowMs);
+  void enterCompanionHome(uint32_t nowMs);
+  void handleCompanionTouch(const TouchEvent &event, uint32_t nowMs);
+
   AppState state_ = AppState::Booting;
   DisplayManager display_;
   ReadingLoop reader_;
@@ -348,4 +359,9 @@ class App {
   ReaderMode readerMode_ = ReaderMode::Rsvp;
   HandednessMode handednessMode_ = HandednessMode::Right;
   DisplayManager::TypographyConfig typographyConfig_;
+  bookworm::BookWormStore bookwormStore_;
+  bookworm::BookWormState bookwormState_{};
+  uint32_t lastBookwormTickMs_ = 0;
+  uint32_t lastBookwormPersistMs_ = 0;
+  uint32_t companionDeskFlashUntilMs_ = 0;
 };

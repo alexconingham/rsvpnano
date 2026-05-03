@@ -2794,3 +2794,88 @@ void DisplayManager::renderProgress(const String &title, const String &line1, co
   drawBatteryBadge();
   flushScaledFrame(scale, virtualWidth, virtualHeight);
 }
+
+void DisplayManager::renderCompanion(const bookworm::BookWormView &view, const String &timeText) {
+  String renderKey = "cmp|";
+  renderKey += view.name;
+  renderKey += "|t:";
+  renderKey += timeText;
+  renderKey += "|st:";
+  renderKey += String(view.styleId);
+  renderKey += "|e:";
+  renderKey += String(view.evolutionStage);
+  renderKey += "|h:";
+  renderKey += String(view.hungerPermille);
+  renderKey += "|b:";
+  renderKey += String(view.boredomPermille);
+  renderKey += "|m:";
+  renderKey += view.moodLine;
+  renderKey += "|f:";
+  renderKey += String(view.flashDeskAction ? 1 : 0);
+  renderKey += "|bg:";
+  renderKey += batteryLabel_;
+  renderKey += "|d:";
+  renderKey += String(darkMode_ ? 1 : 0);
+  renderKey += "|n:";
+  renderKey += String(nightMode_ ? 1 : 0);
+
+  if (!initialized_ || renderKey == lastRenderKey_) {
+    return;
+  }
+  lastRenderKey_ = renderKey;
+
+  const int scale = 1;
+  const int virtualWidth = kDisplayWidth;
+  const int virtualHeight = kDisplayHeight;
+  clearVirtualBuffer(virtualWidth, virtualHeight);
+
+  static const uint16_t kStyleColors[] = {
+      0xF813, 0x07E8, 0x281F, 0xFFE5, 0xF81F, 0x05FF, 0xFDA0, 0xDEFB,
+  };
+  const uint16_t petRgb = kStyleColors[view.styleId % 8];
+  const uint16_t petDraw = view.flashDeskAction ? focusColor() : petRgb;
+
+  const String petLabel = "Lv" + String(view.evolutionStage);
+  drawTinyTextAt(petLabel, 8, 4, dimColor(), kTinyScale);
+
+  const String nameFit = fitTinyText(view.name, virtualWidth / 2, kTinyScale);
+  drawTinyTextAt(nameFit, 8, 4 + kTinyGlyphHeight * kTinyScale + 2, wordColor(), kTinyScale);
+
+  const int timeW = measureTinyTextWidth(timeText, kTinyScale);
+  drawTinyTextAt(timeText, std::max(8, virtualWidth - timeW - 8), 4, wordColor(), kTinyScale);
+
+  const int cx = virtualWidth / 2;
+  const int cy = 72;
+  for (int dy = -14; dy <= 14; ++dy) {
+    const int halfW = 38 - (abs(dy) * 36) / 15;
+    if (halfW > 0) {
+      fillVirtualRect(cx - halfW, cy + dy, halfW * 2, 1, petDraw);
+    }
+  }
+  fillVirtualRect(cx - 6, cy - 20, 12, 10, petDraw);
+  fillVirtualRect(cx - 26, cy - 8, 8, 6, petDraw);
+  fillVirtualRect(cx + 18, cy - 8, 8, 6, petDraw);
+
+  const int meterY = 118;
+  const int maxBar = 220;
+  drawTinyTextAt("H", 10, meterY - 14, dimColor(), kTinyScale);
+  const int hFill = std::max(2, (maxBar * static_cast<int>(view.hungerPermille)) / 1000);
+  fillVirtualRect(28, meterY - 12, maxBar, 8, dimColor());
+  fillVirtualRect(29, meterY - 11, hFill, 6, 0xF800);
+  drawTinyTextAt("B", 10, meterY + 4, dimColor(), kTinyScale);
+  const int bFill = std::max(2, (maxBar * static_cast<int>(view.boredomPermille)) / 1000);
+  fillVirtualRect(28, meterY + 6, maxBar, 8, dimColor());
+  fillVirtualRect(29, meterY + 7, bFill, 6, 0x07FF);
+
+  if (!view.moodLine.isEmpty()) {
+    drawTinyTextCentered(view.moodLine, std::min(virtualHeight - 10, meterY + 30), dimColor(),
+                         kTinyScale);
+  }
+
+  drawTinyTextAt("Feed", 48, virtualHeight - 16, dimColor(), kTinyScale);
+  drawTinyTextAt("Play", virtualWidth / 2 - 24, virtualHeight - 16, dimColor(), kTinyScale);
+  drawTinyTextAt("Pet", virtualWidth - 64, virtualHeight - 16, dimColor(), kTinyScale);
+
+  drawBatteryBadge();
+  flushScaledFrame(scale, virtualWidth, virtualHeight);
+}

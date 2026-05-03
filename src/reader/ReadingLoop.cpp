@@ -477,6 +477,7 @@ void ReadingLoop::begin(uint32_t nowMs) {
 
 void ReadingLoop::setWords(std::vector<String> words, uint32_t nowMs) {
   loadedWords_ = std::move(words);
+  idleNoBook_ = false;
   currentIndex_ = 0;
   lastAdvanceMs_ = nowMs;
   setCurrentWordFromIndex();
@@ -681,7 +682,25 @@ size_t ReadingLoop::wordCount() const {
   if (!loadedWords_.empty()) {
     return loadedWords_.size();
   }
+  if (idleNoBook_) {
+    return 0;
+  }
   return kDemoWordCount;
+}
+
+bool ReadingLoop::isIdleNoBook() const { return idleNoBook_; }
+
+void ReadingLoop::setIdleNoBook(uint32_t nowMs) {
+  loadedWords_.clear();
+  idleNoBook_ = true;
+  currentIndex_ = 0;
+  lastAdvanceMs_ = nowMs;
+  currentWord_ = "";
+}
+
+void ReadingLoop::exitIdleUseDemo(uint32_t nowMs) {
+  idleNoBook_ = false;
+  begin(nowMs);
 }
 
 String ReadingLoop::wordAt(size_t index) const {

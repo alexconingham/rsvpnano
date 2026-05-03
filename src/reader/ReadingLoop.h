@@ -38,6 +38,12 @@ class ReadingLoop {
   bool currentWordEndsSentence() const;
   bool atEnd() const;
 
+  /// True when deliberately showing no book (companion home); suppresses demo text.
+  bool isIdleNoBook() const;
+  void setIdleNoBook(uint32_t nowMs);
+  /// Leave idle state and use built-in demo words (legacy fallback).
+  void exitIdleUseDemo(uint32_t nowMs);
+
  private:
   bool advance(size_t steps);
   void setCurrentWordFromIndex();
@@ -52,4 +58,5 @@ class ReadingLoop {
   PacingConfig pacingConfig_;
   String currentWord_;
   std::vector<String> loadedWords_;
+  bool idleNoBook_ = false;
 };

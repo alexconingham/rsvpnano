@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 WEB_FIRMWARE_DIR = ROOT / "web" / "firmware"
 MANIFEST_PATH = WEB_FIRMWARE_DIR / "manifest.json"
-DEFAULT_REPO = "ionutdecebal/rsvpnano"
+DEFAULT_REPO = "ionutdecebal/rsvpnano"  # or "you/your-fork" for custom releases
 DEFAULT_ASSETS = ("rsvp-nano.bin", "rsvp-nano-ota.bin")
 DEFAULT_MANIFEST = {
     "name": "RSVP Nano",

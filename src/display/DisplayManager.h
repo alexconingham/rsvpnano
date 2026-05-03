@@ -5,6 +5,8 @@
 
 #include "board/BoardConfig.h"
 
+#include "bookworm/BookWormView.h"
+
 class DisplayManager {
  public:
   enum class ReaderTypeface : uint8_t {
@@ -93,6 +95,7 @@ class DisplayManager {
   void renderStatus(const String &title, const String &line1 = "", const String &line2 = "");
   void renderProgress(const String &title, const String &line1 = "", const String &line2 = "",
                       int progressPercent = -1);
+  void renderCompanion(const bookworm::BookWormView &view, const String &timeText);
 
  private:
   bool initPanel();

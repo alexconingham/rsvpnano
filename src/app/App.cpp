@@ -11,6 +11,12 @@
 
 #include "board/BoardConfig.h"
 
+#include <cstring>
+
+#include "bookworm/BookWormConfig.h"
+#include "bookworm/BookWormSim.h"
+#include "time/TimeService.h"
+
 #ifndef RSVP_USB_TRANSFER_ENABLED
 #define RSVP_USB_TRANSFER_ENABLED 0
 #endif
@@ -57,6 +63,7 @@ enum MenuItem : size_t {
   MenuResume,
   MenuChapters,
   MenuChangeBook,
+  MenuDesk,
   MenuSettings,
 #if RSVP_USB_TRANSFER_ENABLED
   MenuUsbTransfer,
@@ -489,20 +496,22 @@ void App::begin() {
   const uint16_t savedWpm = preferences_.getUShort(kPrefWpm, reader_.wpm());
   reader_.setWpm(savedWpm);
 
-  if (storageReady && restoreSavedBook(bootStartedMs_)) {
-    usingStorageBook_ = true;
-  } else if (storageReady && loadBookAtIndex(0, bootStartedMs_)) {
-    usingStorageBook_ = true;
-  } else {
-    usingStorageBook_ = false;
-    chapterMarkers_.clear();
-    paragraphStarts_.clear();
-    currentBookPath_ = "";
-    currentBookTitle_ = "Demo";
-    reader_.begin(bootStartedMs_);
-    invalidateContextPreviewWindow();
-    Serial.println("[app] using built-in demo text");
+  reader_.setIdleNoBook(bootStartedMs_);
+  usingStorageBook_ = false;
+  chapterMarkers_.clear();
+  paragraphStarts_.clear();
+  currentBookPath_ = "";
+  currentBookTitle_ = "";
+  invalidateContextPreviewWindow();
+
+  bookwormStore_.begin();
+  if (!bookwormStore_.loadInto(bookwormState_)) {
+    std::memset(&bookwormState_, 0, sizeof(bookwormState_));
   }
+  bookwormStore_.ensureHatched(bookwormState_, bootStartedMs_);
+  lastBookwormTickMs_ = bootStartedMs_;
+  lastBookwormPersistMs_ = bootStartedMs_;
+  bookwormState_.lastTickMs = bootStartedMs_;
 
   maybeAutoCheckForUpdates(bootStartedMs_);
   Serial.printf("[app] WPM=%u interval=%lu ms\n", reader_.wpm(),
@@ -523,6 +532,7 @@ void App::update(uint32_t nowMs) {
 
   const bool batteryChanged = updateBatteryStatus(nowMs);
   updateState(nowMs);
+  maybeTickBookworm(nowMs);
   updateReader(nowMs);
   handleTouch(nowMs);
   updateWpmFeedback(nowMs);
@@ -532,6 +542,8 @@ void App::update(uint32_t nowMs) {
     renderActiveReader(nowMs);
   } else if (batteryChanged && state_ == AppState::Menu) {
     renderMenu();
+  } else if (batteryChanged && state_ == AppState::Companion) {
+    renderCompanionScreen(nowMs);
   }
 
   if (nowMs - lastStateLogMs_ > 1500) {
@@ -546,6 +558,8 @@ const char *App::stateName(AppState state) const {
   switch (state) {
     case AppState::Booting:
       return "Booting";
+    case AppState::Companion:
+      return "Companion";
     case AppState::Paused:
       return "Paused";
     case AppState::Playing:
@@ -614,6 +628,9 @@ void App::setState(AppState nextState, uint32_t nowMs) {
     case AppState::Sleeping:
       display_.renderCenteredWord("SLEEP");
       break;
+    case AppState::Companion:
+      renderCompanionScreen(nowMs);
+      break;
     case AppState::Booting:
       display_.renderCenteredWord("READY");
       break;
@@ -634,9 +651,11 @@ void App::updateState(uint32_t nowMs) {
       return;
     }
 
-    setState((touchPlayHeld_ || playLocked_ || pauseAtSentenceEndRequested_) ? AppState::Playing
-                                                                              : AppState::Paused,
-             nowMs);
+    setState(AppState::Companion, nowMs);
+    return;
+  }
+
+  if (state_ == AppState::Companion) {
     return;
   }
 
@@ -668,7 +687,17 @@ void App::updateReader(uint32_t nowMs) {
     return;
   }
 
+  const size_t wordIndexBefore = reader_.currentIndex();
+
   const bool changed = reader_.update(nowMs, !pauseAtSentenceEndRequested_);
+  if (changed && bookwormState_.hatched) {
+    const size_t after = reader_.currentIndex();
+    if (after > wordIndexBefore) {
+      bookworm::BookWormSim::onReadingWords(bookwormState_,
+                                            static_cast<uint32_t>(after - wordIndexBefore));
+      maybePersistBookworm(nowMs, true);
+    }
+  }
   if (scrollModeEnabled()) {
     if (changed || nowMs - lastScrollAnimationRenderMs_ >= kScrollAnimationFrameMs) {
       renderScrollReader(nowMs);
@@ -766,7 +795,11 @@ void App::toggleMenuFromPowerButton(uint32_t nowMs) {
 
   if (state_ == AppState::Menu) {
     if (menuScreen_ == MenuScreen::Main) {
-      setState(AppState::Paused, nowMs);
+      if (reader_.isIdleNoBook()) {
+        setState(AppState::Companion, nowMs);
+      } else {
+        setState(AppState::Paused, nowMs);
+      }
     } else {
       menuScreen_ = MenuScreen::Main;
       renderMainMenu();
@@ -821,6 +854,11 @@ void App::applyDisplayPreferences(uint32_t nowMs, bool rerender) {
     return;
   }
 
+  if (state_ == AppState::Companion) {
+    renderCompanionScreen(nowMs);
+    return;
+  }
+
   if (state_ == AppState::Booting) {
     display_.renderCenteredWord("READY");
   }
@@ -865,6 +903,11 @@ void App::applyTypographySettings(uint32_t nowMs, bool rerender) {
 
   if (state_ == AppState::Paused || state_ == AppState::Playing) {
     renderActiveReader(nowMs);
+    return;
+  }
+
+  if (state_ == AppState::Companion) {
+    renderCompanionScreen(nowMs);
   }
 }
 
@@ -1157,7 +1200,9 @@ void App::handleTouch(uint32_t nowMs) {
   Serial.printf("[touch] phase=%s touched=%u x=%u y=%u gesture=%u state=%s\n",
                 touchPhaseName(ev.phase), ev.touched ? 1 : 0, ev.x, ev.y, ev.gesture,
                 stateName(state_));
-  if (state_ == AppState::Menu) {
+  if (state_ == AppState::Companion) {
+    handleCompanionTouch(ev, nowMs);
+  } else if (state_ == AppState::Menu) {
     applyMenuTouchGesture(ev, nowMs);
   } else {
     applyPausedTouchGesture(ev, nowMs);
@@ -1550,6 +1595,9 @@ void App::moveMenuSelection(int direction) {
       case MenuChangeBook:
         selectedLabel = uiText(UiText::Library);
         break;
+      case MenuDesk:
+        selectedLabel = uiText(UiText::Desk);
+        break;
       case MenuSettings:
         selectedLabel = uiText(UiText::Settings);
         break;
@@ -1597,6 +1645,7 @@ void App::selectMenuItem(uint32_t nowMs) {
 
   switch (menuSelectedIndex_) {
     case MenuResume:
+      prepareBookForReading(nowMs);
       setState(AppState::Paused, nowMs);
       return;
     case MenuPowerOff:
@@ -1612,6 +1661,9 @@ void App::selectMenuItem(uint32_t nowMs) {
       return;
     case MenuChangeBook:
       openBookPicker();
+      return;
+    case MenuDesk:
+      enterCompanionHome(nowMs);
       return;
     case MenuSettings:
       openSettings();
@@ -2686,7 +2738,11 @@ void App::enterUsbTransfer(uint32_t nowMs) {
     if (storageReady) {
       storage_.listBooks();
     }
-    setState(AppState::Paused, nowMs);
+    if (reader_.isIdleNoBook()) {
+      setState(AppState::Companion, nowMs);
+    } else {
+      setState(AppState::Paused, nowMs);
+    }
     return;
   }
 
@@ -2733,7 +2789,11 @@ void App::exitUsbTransfer(uint32_t nowMs) {
   }
 
   menuScreen_ = MenuScreen::Main;
-  setState(AppState::Paused, nowMs);
+  if (reader_.isIdleNoBook()) {
+    setState(AppState::Companion, nowMs);
+  } else {
+    setState(AppState::Paused, nowMs);
+  }
 }
 
 void App::enterPowerOff(uint32_t nowMs) {
@@ -2808,11 +2868,17 @@ void App::wakeFromSleep() {
   wpmFeedbackVisible_ = false;
   menuScreen_ = MenuScreen::Main;
   lastStateLogMs_ = nowMs;
-  state_ = AppState::Paused;
-
   const bool displayReady = display_.wakeFromSleep();
-  if (displayReady) {
-    renderActiveReader(nowMs);
+  if (reader_.isIdleNoBook()) {
+    state_ = AppState::Companion;
+    if (displayReady) {
+      renderCompanionScreen(nowMs);
+    }
+  } else {
+    state_ = AppState::Paused;
+    if (displayReady) {
+      renderActiveReader(nowMs);
+    }
   }
 
   touchInitialized_ = touch_.begin();
@@ -3028,6 +3094,7 @@ void App::renderMainMenu() {
   items.push_back(uiText(UiText::Resume));
   items.push_back(uiText(UiText::Chapters));
   items.push_back(uiText(UiText::Library));
+  items.push_back(uiText(UiText::Desk));
   items.push_back(uiText(UiText::Settings));
 #if RSVP_USB_TRANSFER_ENABLED
   items.push_back(uiText(UiText::UsbTransfer));
@@ -3561,4 +3628,119 @@ void App::handleStorageStatus(void *context, const char *title, const char *line
 
   static_cast<App *>(context)->renderStorageStatus(title, line1, line2, progressPercent);
   delay(0);
+}
+
+void App::maybeTickBookworm(uint32_t nowMs) {
+  if (state_ == AppState::Booting || state_ == AppState::UsbTransfer ||
+      state_ == AppState::Sleeping) {
+    return;
+  }
+  if (!bookwormState_.hatched) {
+    return;
+  }
+  if (nowMs - lastBookwormTickMs_ < bookworm::kSimTickIntervalMs) {
+    return;
+  }
+  const uint32_t dt = nowMs - lastBookwormTickMs_;
+  lastBookwormTickMs_ = nowMs;
+  bookworm::BookWormSim::tick(bookwormState_, dt);
+  bookwormState_.lastTickMs = nowMs;
+  maybePersistBookworm(nowMs, false);
+  if (state_ == AppState::Companion) {
+    renderCompanionScreen(nowMs);
+  }
+}
+
+void App::maybePersistBookworm(uint32_t nowMs, bool force) {
+  if (!bookwormState_.hatched) {
+    return;
+  }
+  if (force || (nowMs - lastBookwormPersistMs_ >= bookworm::kPersistenceDebounceMs)) {
+    lastBookwormPersistMs_ = nowMs;
+    bookwormStore_.save(bookwormState_);
+  }
+}
+
+bookworm::BookWormView App::buildBookwormView(uint32_t nowMs) const {
+  bookworm::BookWormView v;
+  v.name = String(bookwormState_.name);
+  v.styleId = bookwormState_.styleId;
+  v.evolutionStage = bookwormState_.evolutionStage;
+  v.hungerPermille = bookwormState_.hunger;
+  v.boredomPermille = bookwormState_.boredom;
+  if (bookwormState_.hunger > 700) {
+    v.moodLine = "Hungry";
+  } else if (bookwormState_.boredom > 700) {
+    v.moodLine = "Bored";
+  } else {
+    v.moodLine = "Open a book!";
+  }
+  v.flashDeskAction = (nowMs < companionDeskFlashUntilMs_);
+  return v;
+}
+
+void App::renderCompanionScreen(uint32_t nowMs) {
+  String clock = TimeService::formatHHMM();
+  if (!TimeService::hasValidLocalTime()) {
+    clock = "--:--";
+  }
+  display_.renderCompanion(buildBookwormView(nowMs), clock);
+}
+
+bool App::prepareBookForReading(uint32_t nowMs) {
+  if (!reader_.isIdleNoBook()) {
+    return reader_.wordCount() > 0;
+  }
+  if (storage_.bookCount() > 0) {
+    if (restoreSavedBook(nowMs)) {
+      usingStorageBook_ = true;
+      return true;
+    }
+    if (loadBookAtIndex(0, nowMs)) {
+      usingStorageBook_ = true;
+      return true;
+    }
+  }
+  reader_.exitIdleUseDemo(nowMs);
+  usingStorageBook_ = false;
+  currentBookPath_ = "";
+  currentBookTitle_ = "Demo";
+  invalidateContextPreviewWindow();
+  Serial.println("[app] using built-in demo text");
+  return true;
+}
+
+void App::enterCompanionHome(uint32_t nowMs) {
+  saveReadingPosition(true);
+  reader_.setIdleNoBook(nowMs);
+  usingStorageBook_ = false;
+  currentBookPath_ = "";
+  currentBookTitle_ = "";
+  chapterMarkers_.clear();
+  paragraphStarts_.clear();
+  invalidateContextPreviewWindow();
+  menuScreen_ = MenuScreen::Main;
+  maybePersistBookworm(nowMs, true);
+  setState(AppState::Companion, nowMs);
+}
+
+void App::handleCompanionTouch(const TouchEvent &event, uint32_t nowMs) {
+  if (event.phase != TouchPhase::End) {
+    return;
+  }
+  const int x = static_cast<int>(event.x);
+  const int y = static_cast<int>(event.y);
+  if (y < 110) {
+    return;
+  }
+  if (x < BoardConfig::DISPLAY_WIDTH / 3) {
+    bookworm::BookWormSim::deskFeed(bookwormState_);
+  } else if (x < (2 * BoardConfig::DISPLAY_WIDTH) / 3) {
+    bookworm::BookWormSim::deskPlay(bookwormState_);
+  } else {
+    bookworm::BookWormSim::deskPet(bookwormState_);
+  }
+  companionDeskFlashUntilMs_ = nowMs + 350;
+  maybePersistBookworm(nowMs, true);
+  renderCompanionScreen(nowMs);
 }

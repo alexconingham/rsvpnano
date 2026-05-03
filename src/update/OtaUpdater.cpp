@@ -8,6 +8,8 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 
+#include "time/TimeService.h"
+
 #ifndef RSVP_FIRMWARE_VERSION
 #define RSVP_FIRMWARE_VERSION "dev"
 #endif
@@ -310,7 +312,11 @@ bool OtaUpdater::connectWiFi(const Config &config, StatusCallback callback,
     delay(kWifiConnectPollMs);
   }
 
-  return WiFi.status() == WL_CONNECTED;
+  if (WiFi.status() == WL_CONNECTED) {
+    TimeService::requestSntpOnce();
+    return true;
+  }
+  return false;
 }
 
 void OtaUpdater::disconnectWiFi() const {
