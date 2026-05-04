@@ -19,6 +19,12 @@ struct BookWormState {
   uint32_t totalReadMs = 0;
   uint32_t hatchedAtUtc = 0;
   uint32_t lastTickMs = 0;
+  /// Time spent with both needs very high (sick streak).
+  uint32_t sickAccumMs = 0;
+  /// Gorged debuff: hunger rises faster until ticks expire.
+  uint16_t overfullTicks = 0;
+  /// Smoothed care / bonding score for cosmetic unlock (0–1000).
+  uint16_t careScorePermille = 500;
 };
 
 void clampNeeds(BookWormState &s);

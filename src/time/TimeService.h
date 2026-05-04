@@ -9,6 +9,9 @@ class TimeService {
 
   static bool hasValidLocalTime();
 
+  /// UTC Unix seconds when SNTP-valid, else 0.
+  static uint32_t utcUnixSeconds();
+
   /// Local wall time HH:MM, or "--:--" if unknown.
   static String formatHHMM();
 

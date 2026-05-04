@@ -18,6 +18,8 @@ inline constexpr uint16_t kReadingBoredomHealPermille = 10;
 inline constexpr uint16_t kDeskFeedHunger = 180;
 inline constexpr uint16_t kDeskPlayBoredom = 200;
 inline constexpr uint16_t kDeskPetBoth = 80;
+inline constexpr uint16_t kDeskBoopHunger = 25;
+inline constexpr uint16_t kDeskBoopBoredom = 35;
 
 inline constexpr uint8_t kStyleCount = 8;
 
@@ -27,5 +29,16 @@ inline constexpr uint32_t kEvolveStage3Words = 50000;
 
 inline constexpr uint32_t kSimTickIntervalMs = 500;
 inline constexpr uint32_t kPersistenceDebounceMs = 45000;
+
+/// Both needs high for this long → visibly "sick"; relieved by care + lower needs.
+inline constexpr uint32_t kSickAccumThresholdMs = 300000;
+inline constexpr uint32_t kSickAccumCapMs = 7200000;
+inline constexpr uint32_t kSickCareReliefMs = 200000;
+
+/// Feed-spam: desk feeds within a few seconds stack `overfullTicks` (hunger rises faster).
+inline constexpr uint16_t kOverfullTicksFromSpam = 100;
+
+/// Care score permille (0–1000); desk/boop/reading nudge upward; unlocks UI accent.
+inline constexpr uint16_t kCareAccentMinPermille = 840;
 
 }  // namespace bookworm

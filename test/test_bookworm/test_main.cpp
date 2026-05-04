@@ -13,10 +13,14 @@ uint32_t testRng() { return ++gSeq; }
 
 }  // namespace
 
+void setUp(void) {}
+
+void tearDown(void) {}
+
 void test_hatch_is_deterministic_with_fixed_rng() {
   bookworm::BookWormState s;
   gSeq = 100;
-  bookworm::hatchEgg(s, 0, testRng);
+  bookworm::hatchEgg(s, 0, 0, testRng);
   TEST_ASSERT_TRUE(s.hatched);
   TEST_ASSERT_EQUAL_STRING("bruffkin", s.name);
   TEST_ASSERT_EQUAL_UINT8(0, s.styleId);

@@ -20,6 +20,7 @@ inline uint32_t defaultRandomU32() {
 #endif
 }
 
-void hatchEgg(BookWormState &s, uint32_t nowMsMonotonic, RandomU32Fn rnd = defaultRandomU32);
+void hatchEgg(BookWormState &s, uint32_t nowMsMonotonic, uint32_t hatchedAtUtc = 0,
+              RandomU32Fn rnd = defaultRandomU32);
 
 }  // namespace bookworm

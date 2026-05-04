@@ -278,7 +278,8 @@ class App {
 
   void maybeTickBookworm(uint32_t nowMs);
   void maybePersistBookworm(uint32_t nowMs, bool force);
-  bookworm::BookWormView buildBookwormView(uint32_t nowMs) const;
+  bookworm::BookWormView buildBookwormView(uint32_t nowMs);
+  void showCompanionToast(uint32_t nowMs, const char *msg);
   void renderCompanionScreen(uint32_t nowMs);
   bool prepareBookForReading(uint32_t nowMs);
   void enterCompanionHome(uint32_t nowMs);
@@ -365,7 +366,13 @@ class App {
   bookworm::BookWormState bookwormState_{};
   bool bookwormHibernate_ = false;
   bool bootToBook_ = false;
+  bool bookwormCompanionStatesEnabled_ = true;
+  bool bookwormEvolutionEnabled_ = true;
   uint32_t lastBookwormTickMs_ = 0;
   uint32_t lastBookwormPersistMs_ = 0;
   uint32_t companionDeskFlashUntilMs_ = 0;
+  String companionToast_;
+  uint32_t companionToastUntilMs_ = 0;
+  uint32_t companionLastFeedMs_ = 0;
+  uint8_t companionFeedBurst_ = 0;
 };

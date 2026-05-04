@@ -28,6 +28,23 @@
 
 static const char *kAppTag = "app";
 constexpr uint32_t kBootSplashMs = 750;
+
+namespace {
+
+uint32_t companionToastPickSalt(uint32_t nowMs, const bookworm::BookWormState &s, uint32_t actionTag) {
+  uint32_t h = (nowMs / 100u) ^ (actionTag * 0x9E3779B9u);
+  for (size_t i = 0; i < sizeof(s.name) && s.name[i] != '\0'; ++i) {
+    h = h * 16777619u ^ static_cast<uint32_t>(static_cast<uint8_t>(s.name[i]));
+  }
+  return h ? h : 0xC0FFEEu;
+}
+
+const char *pickCompanionToastLine(uint32_t salt, const char *const *lines, size_t count) {
+  return lines[salt % count];
+}
+
+}  // namespace
+
 constexpr uint32_t kWpmFeedbackMs = 900;
 constexpr uint32_t kPowerOffHoldMs = 1600;
 constexpr uint32_t kPowerOffReleaseWaitMs = 4000;
@@ -119,10 +136,12 @@ constexpr size_t kSettingsHomeWifiIndex = 4;
 constexpr size_t kSettingsHomeBookwormIndex = 5;
 constexpr size_t kSettingsHomeUpdateIndex = 6;
 constexpr size_t kBookwormSettingsHibernateIndex = 1;
-constexpr size_t kBookwormSettingsBootIndex = 2;
+constexpr size_t kBookwormSettingsStatesIndex = 2;
+constexpr size_t kBookwormSettingsEvolutionIndex = 3;
+constexpr size_t kBookwormSettingsBootIndex = 4;
 #ifdef RSVP_BOOKWORM_DEV
-constexpr size_t kBookwormSettingsDevRegenIndex = 3;
-constexpr size_t kBookwormSettingsDevEvoIndex = 4;
+constexpr size_t kBookwormSettingsDevRegenIndex = 5;
+constexpr size_t kBookwormSettingsDevEvoIndex = 6;
 #endif
 constexpr size_t kSettingsDisplayReadingModeIndex = 1;
 constexpr size_t kSettingsDisplayHandednessIndex = 2;
@@ -174,6 +193,8 @@ constexpr const char *kPrefWifiPass = "wifi_pass";
 constexpr const char *kPrefOtaAuto = "ota_auto";
 constexpr const char *kPrefBookwormHibernate = "bw_hib";
 constexpr const char *kPrefBootToBook = "bw_boot_book";
+constexpr const char *kPrefBookwormStates = "bw_state";
+constexpr const char *kPrefBookwormEvolution = "bw_evo";
 constexpr size_t kReaderFontSizeCount = 3;
 constexpr size_t kPhantomBeforeCharTargets[] = {64, 96, 144};
 constexpr size_t kPhantomAfterCharTargets[] = {96, 144, 208};
@@ -472,6 +493,8 @@ void App::begin() {
   nightMode_ = preferences_.getBool(kPrefNightMode, nightMode_);
   bookwormHibernate_ = preferences_.getBool(kPrefBookwormHibernate, bookwormHibernate_);
   bootToBook_ = preferences_.getBool(kPrefBootToBook, bootToBook_);
+  bookwormCompanionStatesEnabled_ = preferences_.getBool(kPrefBookwormStates, true);
+  bookwormEvolutionEnabled_ = preferences_.getBool(kPrefBookwormEvolution, true);
   applyHandednessSettings(0, false);
   applyDisplayPreferences(0, false);
   applyTypographySettings(0, false);
@@ -524,6 +547,13 @@ void App::begin() {
   lastBookwormTickMs_ = bootStartedMs_;
   lastBookwormPersistMs_ = bootStartedMs_;
   bookwormState_.lastTickMs = bootStartedMs_;
+  if (bookwormState_.hatched && bookwormState_.hatchedAtUtc == 0) {
+    const uint32_t utcFill = TimeService::utcUnixSeconds();
+    if (utcFill != 0) {
+      bookwormState_.hatchedAtUtc = utcFill;
+      bookwormStore_.save(bookwormState_);
+    }
+  }
 
   maybeAutoCheckForUpdates(bootStartedMs_);
   Serial.printf("[app] WPM=%u interval=%lu ms\n", reader_.wpm(),
@@ -709,8 +739,10 @@ void App::updateReader(uint32_t nowMs) {
   if (changed && bookwormState_.hatched) {
     const size_t after = reader_.currentIndex();
     if (after > wordIndexBefore) {
-      bookworm::BookWormSim::onReadingWords(
-          bookwormState_, static_cast<uint32_t>(after - wordIndexBefore), !bookwormHibernate_);
+      const bool applyNeeds = !bookwormHibernate_ && bookwormCompanionStatesEnabled_;
+      bookworm::BookWormSim::onReadingWords(bookwormState_,
+                                            static_cast<uint32_t>(after - wordIndexBefore),
+                                            applyNeeds, bookwormEvolutionEnabled_);
       maybePersistBookworm(nowMs, true);
     }
   }
@@ -2335,6 +2367,10 @@ void App::rebuildSettingsMenuItems() {
     settingsMenuItems_.push_back(uiText(UiText::Back));
     settingsMenuItems_.push_back(uiText(UiText::Hibernate) + ": " +
                                  uiText(bookwormHibernate_ ? UiText::On : UiText::Off));
+    settingsMenuItems_.push_back(uiText(UiText::CompanionNeedsSim) + ": " +
+                                 uiText(bookwormCompanionStatesEnabled_ ? UiText::On : UiText::Off));
+    settingsMenuItems_.push_back(uiText(UiText::CompanionEvolution) + ": " +
+                                 uiText(bookwormEvolutionEnabled_ ? UiText::On : UiText::Off));
     settingsMenuItems_.push_back(uiText(bootToBook_ ? UiText::BootOpenBook
                                                     : UiText::BootOpenCompanion));
 #ifdef RSVP_BOOKWORM_DEV
@@ -3686,6 +3722,12 @@ void App::maybeTickBookworm(uint32_t nowMs) {
   if (!bookwormState_.hatched) {
     return;
   }
+  if (!bookwormCompanionStatesEnabled_) {
+    if (nowMs - lastBookwormTickMs_ >= bookworm::kSimTickIntervalMs) {
+      lastBookwormTickMs_ = nowMs;
+    }
+    return;
+  }
   if (nowMs - lastBookwormTickMs_ < bookworm::kSimTickIntervalMs) {
     return;
   }
@@ -3709,16 +3751,26 @@ void App::maybePersistBookworm(uint32_t nowMs, bool force) {
   }
 }
 
-bookworm::BookWormView App::buildBookwormView(uint32_t nowMs) const {
+bookworm::BookWormView App::buildBookwormView(uint32_t nowMs) {
   bookworm::BookWormView v;
   v.name = String(bookwormState_.name);
   v.styleId = bookwormState_.styleId;
-  v.evolutionStage = bookwormState_.evolutionStage;
+  v.evolutionStage =
+      bookwormEvolutionEnabled_ ? bookwormState_.evolutionStage : static_cast<uint8_t>(0);
   v.hungerPermille = bookwormState_.hunger;
   v.boredomPermille = bookwormState_.boredom;
   v.hibernate = bookwormHibernate_;
+  const bool simActive = bookwormCompanionStatesEnabled_ && !bookwormHibernate_;
+  if (!simActive) {
+    v.hungerPermille = 250;
+    v.boredomPermille = 250;
+  }
   if (bookwormHibernate_) {
     v.moodLine = uiText(UiText::PetResting);
+  } else if (!bookwormCompanionStatesEnabled_) {
+    v.moodLine = uiText(UiText::CompanionNeedsPaused);
+  } else if (bookwormState_.sickAccumMs >= bookworm::kSickAccumThresholdMs) {
+    v.moodLine = "Not well...";
   } else if (bookwormState_.hunger > 700) {
     v.moodLine = "Hungry";
   } else if (bookwormState_.boredom > 700) {
@@ -3727,7 +3779,28 @@ bookworm::BookWormView App::buildBookwormView(uint32_t nowMs) const {
     v.moodLine = "Open a book!";
   }
   v.flashDeskAction = (nowMs < companionDeskFlashUntilMs_);
+  v.companionAnimMs = nowMs;
+  if (nowMs < companionToastUntilMs_ && companionToast_.length() > 0) {
+    v.toastLine = companionToast_;
+  }
+  v.attentionPing = simActive && (bookwormState_.hunger >= 760 || bookwormState_.boredom >= 760);
+  v.ageLine = "";
+  if (bookwormState_.hatchedAtUtc != 0 && TimeService::hasValidLocalTime()) {
+    const uint32_t nowU = TimeService::utcUnixSeconds();
+    if (nowU >= bookwormState_.hatchedAtUtc) {
+      const uint32_t days = (nowU - bookwormState_.hatchedAtUtc) / 86400u;
+      v.ageLine = String(static_cast<unsigned long>(days)) + "d";
+    }
+  }
+  v.isSick = simActive && bookwormState_.sickAccumMs >= bookworm::kSickAccumThresholdMs;
+  v.careAccent = bookwormCompanionStatesEnabled_ &&
+                 bookwormState_.careScorePermille >= bookworm::kCareAccentMinPermille;
   return v;
+}
+
+void App::showCompanionToast(uint32_t nowMs, const char *msg) {
+  companionToast_ = msg;
+  companionToastUntilMs_ = nowMs + 2200;
 }
 
 void App::renderCompanionScreen(uint32_t nowMs) {
@@ -3784,15 +3857,73 @@ void App::handleCompanionTouch(const TouchEvent &event, uint32_t nowMs) {
   }
   const int x = static_cast<int>(event.x);
   const int y = static_cast<int>(event.y);
+
+  // Tap creature (upper area): light "boop" care — Tamagotchi-style
+  constexpr int kPetAreaTop = 16;
+  constexpr int kPetAreaBottom = 104;
+  constexpr int kPetCx = BoardConfig::DISPLAY_WIDTH / 2;
+  constexpr int kPetHalfW = 200;
+  const int dx = x - kPetCx;
+  if (y >= kPetAreaTop && y <= kPetAreaBottom && dx >= -kPetHalfW && dx <= kPetHalfW) {
+    static const char *const kBoopMsg[] = {"*boop*", "^_^", "Hehe!", "Hi!", "Eep~", "Soft~"};
+    if (bookwormCompanionStatesEnabled_) {
+      bookworm::BookWormSim::deskBoop(bookwormState_);
+    }
+    companionDeskFlashUntilMs_ = nowMs + 350;
+    const uint32_t salt = companionToastPickSalt(nowMs, bookwormState_, 0xB00Bu);
+    showCompanionToast(nowMs, pickCompanionToastLine(salt, kBoopMsg, 6));
+    maybePersistBookworm(nowMs, true);
+    renderCompanionScreen(nowMs);
+    return;
+  }
+
   if (y < 110) {
     return;
   }
+  static const char *const kFeedToast[] = {"Nom~", "Yum!", "Chomp", "Tasty", "More~"};
+  static const char *const kPlayToast[] = {"Whee!", "Fun!", "Yay~", "Ha!", "Zoom~"};
+  static const char *const kPetToast[] = {"Aww~", "*pat*", "Love~", "Cozy", "Hehe~"};
   if (x < BoardConfig::DISPLAY_WIDTH / 3) {
-    bookworm::BookWormSim::deskFeed(bookwormState_);
+    if (bookwormCompanionStatesEnabled_) {
+      const uint32_t sinceFeed =
+          (companionLastFeedMs_ == 0u) ? 999999u : (nowMs - companionLastFeedMs_);
+      if (sinceFeed < 3800u) {
+        if (companionFeedBurst_ < 255) {
+          ++companionFeedBurst_;
+        }
+      } else {
+        companionFeedBurst_ = 0;
+      }
+      companionLastFeedMs_ = nowMs;
+      bookworm::BookWormSim::deskFeed(bookwormState_);
+      if (companionFeedBurst_ >= 3u) {
+        bookwormState_.overfullTicks = bookworm::kOverfullTicksFromSpam;
+        companionFeedBurst_ = 0;
+        showCompanionToast(nowMs, "Too full!");
+      } else {
+        showCompanionToast(nowMs,
+                           pickCompanionToastLine(companionToastPickSalt(nowMs, bookwormState_, 0xFEEDu),
+                                                  kFeedToast, 5));
+      }
+    } else {
+      showCompanionToast(nowMs,
+                         pickCompanionToastLine(companionToastPickSalt(nowMs, bookwormState_, 0xFEEDu),
+                                                kFeedToast, 5));
+    }
   } else if (x < (2 * BoardConfig::DISPLAY_WIDTH) / 3) {
-    bookworm::BookWormSim::deskPlay(bookwormState_);
+    if (bookwormCompanionStatesEnabled_) {
+      bookworm::BookWormSim::deskPlay(bookwormState_);
+    }
+    showCompanionToast(nowMs,
+                       pickCompanionToastLine(companionToastPickSalt(nowMs, bookwormState_, 0x504C6179u),
+                                              kPlayToast, 5));
   } else {
-    bookworm::BookWormSim::deskPet(bookwormState_);
+    if (bookwormCompanionStatesEnabled_) {
+      bookworm::BookWormSim::deskPet(bookwormState_);
+    }
+    showCompanionToast(nowMs,
+                       pickCompanionToastLine(companionToastPickSalt(nowMs, bookwormState_, 0x1E77u),
+                                              kPetToast, 5));
   }
   companionDeskFlashUntilMs_ = nowMs + 350;
   maybePersistBookworm(nowMs, true);
@@ -3816,6 +3947,33 @@ void App::selectBookwormSettingsItem(uint32_t nowMs) {
         renderCompanionScreen(nowMs);
       }
       return;
+    case kBookwormSettingsStatesIndex:
+      bookwormCompanionStatesEnabled_ = !bookwormCompanionStatesEnabled_;
+      preferences_.putBool(kPrefBookwormStates, bookwormCompanionStatesEnabled_);
+      if (!bookwormCompanionStatesEnabled_) {
+        bookwormState_.sickAccumMs = 0;
+        bookwormState_.overfullTicks = 0;
+        maybePersistBookworm(nowMs, true);
+      }
+      rebuildSettingsMenuItems();
+      renderSettings();
+      if (state_ == AppState::Companion) {
+        renderCompanionScreen(nowMs);
+      }
+      return;
+    case kBookwormSettingsEvolutionIndex:
+      bookwormEvolutionEnabled_ = !bookwormEvolutionEnabled_;
+      preferences_.putBool(kPrefBookwormEvolution, bookwormEvolutionEnabled_);
+      if (bookwormEvolutionEnabled_) {
+        bookworm::BookWormSim::syncEvolution(bookwormState_);
+        maybePersistBookworm(nowMs, true);
+      }
+      rebuildSettingsMenuItems();
+      renderSettings();
+      if (state_ == AppState::Companion) {
+        renderCompanionScreen(nowMs);
+      }
+      return;
     case kBookwormSettingsBootIndex:
       bootToBook_ = !bootToBook_;
       preferences_.putBool(kPrefBootToBook, bootToBook_);
@@ -3824,7 +3982,7 @@ void App::selectBookwormSettingsItem(uint32_t nowMs) {
       return;
 #ifdef RSVP_BOOKWORM_DEV
     case kBookwormSettingsDevRegenIndex:
-      bookworm::hatchEgg(bookwormState_, nowMs);
+      bookworm::hatchEgg(bookwormState_, nowMs, TimeService::utcUnixSeconds());
       bookworm::BookWormSim::syncEvolution(bookwormState_);
       maybePersistBookworm(nowMs, true);
       if (state_ == AppState::Companion) {

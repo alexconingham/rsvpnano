@@ -1,31 +1,44 @@
-// Desktop-only: procedural companion → PPM image (640×172). Excluded from firmware via
-// platformio [env] src_filter.
+// Desktop-only: procedural companion → PNG (640×172). Excluded from firmware via
+// platformio [env] src_filter. Uses stb_image_write (test/support/stb_image_write.h).
 //
 // Build:  pio run -e native_companion_preview
-// Run:    .pio/build/native_companion_preview/program.exe [name] [styleId] [evo0-3] [flash0|1] [out.ppm]
+// Single: .pio/build/native_companion_preview/program.exe [name] [styleId] [evo0-3] [flash0|1] [out.png]
+// Batch:  .pio/build/native_companion_preview/program.exe --batch
+//         → writes examples/evo0 … examples/evo3, five PNGs each (companion_01.png … companion_05.png).
 //
-// Requires a host g++ on PATH (e.g. MSYS2 mingw-w64). Open the PPM in an image viewer or browser.
+// Requires a host g++ on PATH (e.g. MSYS2 mingw-w64). Run from repo root so examples/ is relative.
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 
 #include <bookworm/BookWormCreatureDraw.h>
+#include <bookworm/BookWormCc29.h>
 
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <vector>
 
 namespace {
 
 constexpr int kW = 640;
 constexpr int kH = 172;
+constexpr int kNamePool = 20;
+constexpr int kStages = 4;
+constexpr int kPerStage = 5;
 
 struct Rgb888 {
   uint8_t r, g, b;
 };
 
-static const uint16_t kStyleColors[] = {
-    0xF813, 0x07E8, 0x281F, 0xFFE5, 0xF81F, 0x05FF, 0xFDA0, 0xDEFB,
+// Distinct seeds for proc-gen (name affects FNV mix; syllable-style like hatch names).
+static const char *const kVariantNames[kNamePool] = {
+    "glormwick", "bruffkin",  "scrabnip",  "flooplet", "trunkzo",    "pliddlemo", "druzzlebit",
+    "wormcrax",  "snorpkin",  "gleebot",   "braxnibble", "scroopuff", "flobbit", "tribblet",
+    "plankzo",   "werpuggle", "snuffmo",   "craxnip", "glibblet", "droozwick",
 };
 
 Rgb888 from565(uint16_t c) {
@@ -34,13 +47,6 @@ Rgb888 from565(uint16_t c) {
   out.g = static_cast<uint8_t>(((c >> 5) & 0x3Fu) << 2);
   out.b = static_cast<uint8_t>((c & 0x1Fu) << 3);
   return out;
-}
-
-uint16_t shade565(uint16_t c, int num, int den) {
-  uint32_t r = ((c >> 11) & 0x1Fu) * static_cast<uint32_t>(num) / static_cast<uint32_t>(den);
-  uint32_t g = ((c >> 5) & 0x3Fu) * static_cast<uint32_t>(num) / static_cast<uint32_t>(den);
-  uint32_t b = (c & 0x1Fu) * static_cast<uint32_t>(num) / static_cast<uint32_t>(den);
-  return static_cast<uint16_t>((r << 11) | (g << 5) | b);
 }
 
 struct PreviewCtx {
@@ -61,29 +67,99 @@ void plot(void *ctx, int x, int y, int w, int h, uint16_t rgb565) {
   }
 }
 
-bool writePpm(const char *path, const Rgb888 *pix) {
-  FILE *f = std::fopen(path, "wb");
-  if (!f) {
+bool writePng(const char *path, const Rgb888 *pix) {
+  std::vector<uint8_t> rgb(static_cast<size_t>(kW * kH * 3));
+  for (int i = 0; i < kW * kH; ++i) {
+    const size_t o = static_cast<size_t>(i) * 3U;
+    rgb[o] = pix[i].r;
+    rgb[o + 1] = pix[i].g;
+    rgb[o + 2] = pix[i].b;
+  }
+  return stbi_write_png(path, kW, kH, 3, rgb.data(), kW * 3) != 0;
+}
+
+bool renderOnePng(const char *outPath, const char *name, uint8_t style, uint8_t evo, bool flash) {
+  if (evo > 3) {
+    evo = 3;
+  }
+  std::vector<Rgb888> pixels(static_cast<size_t>(kW * kH));
+  constexpr Rgb888 bg = {32, 32, 40};
+  for (size_t i = 0; i < pixels.size(); ++i) {
+    pixels[i] = bg;
+  }
+
+  bookworm::CreatureStyleColors pal;
+  bookworm::fillCreatureStyleColorsCc29(&pal, style);
+
+  PreviewCtx ctx{pixels.data()};
+  const int cx = kW / 2;
+  const int cy = 72;
+  bookworm::drawProcCreature(plot, &ctx, cx, cy, pal, name, style, evo, flash, 0, 280, 280, false);
+
+  if (!writePng(outPath, pixels.data())) {
     return false;
   }
-  std::fprintf(f, "P6 %d %d 255\n", kW, kH);
-  for (int i = 0; i < kW * kH; ++i) {
-    std::fputc(static_cast<int>(pix[i].r), f);
-    std::fputc(static_cast<int>(pix[i].g), f);
-    std::fputc(static_cast<int>(pix[i].b), f);
-  }
-  std::fclose(f);
   return true;
+}
+
+bool isBatchArg(const char *s) {
+  return s != nullptr &&
+         (std::strcmp(s, "--batch") == 0 || std::strcmp(s, "-batch") == 0 ||
+          std::strcmp(s, "batch") == 0);
+}
+
+int runBatchExamples() {
+  namespace fs = std::filesystem;
+  std::error_code ec;
+  fs::create_directories("examples", ec);
+  if (ec) {
+    std::fprintf(stderr, "failed to create examples/: %s\n", ec.message().c_str());
+    return 1;
+  }
+
+  int total = 0;
+  for (int evo = 0; evo < kStages; ++evo) {
+    char folder[64];
+    std::snprintf(folder, sizeof(folder), "examples/evo%d", evo);
+    fs::create_directories(folder, ec);
+    if (ec) {
+      std::fprintf(stderr, "failed to create %s: %s\n", folder, ec.message().c_str());
+      return 1;
+    }
+
+    for (int i = 0; i < kPerStage; ++i) {
+      char pathBuf[192];
+      std::snprintf(pathBuf, sizeof(pathBuf), "examples/evo%d/companion_%02d.png", evo, i + 1);
+      const int idx = evo * kPerStage + i;
+      const uint8_t style = static_cast<uint8_t>(idx % 8);
+      const uint8_t evoU = static_cast<uint8_t>(evo);
+      const bool flash = ((idx % 6) == 0);
+      const char *petName = kVariantNames[static_cast<size_t>(idx % kNamePool)];
+      if (!renderOnePng(pathBuf, petName, style, evoU, flash)) {
+        std::fprintf(stderr, "failed to write %s\n", pathBuf);
+        return 1;
+      }
+      std::printf("%s  name=%s style=%u evo=%u flash=%d\n", pathBuf, petName,
+                  static_cast<unsigned>(style), static_cast<unsigned>(evoU), flash ? 1 : 0);
+      ++total;
+    }
+  }
+  std::printf("wrote %d files under examples/evo0 … evo%d/\n", total, kStages - 1);
+  return 0;
 }
 
 }  // namespace
 
 int main(int argc, char **argv) {
+  if (argc >= 2 && isBatchArg(argv[1])) {
+    return runBatchExamples();
+  }
+
   const char *name = "bruffkin";
   uint8_t style = 0;
   uint8_t evo = 0;
   bool flash = false;
-  const char *outPath = "companion_preview.ppm";
+  const char *outPath = "companion_preview.png";
 
   if (argc >= 2 && argv[1][0] != '-') {
     name = argv[1];
@@ -104,31 +180,11 @@ int main(int argc, char **argv) {
     outPath = argv[5];
   }
 
-  std::vector<Rgb888> pixels(static_cast<size_t>(kW * kH));
-  Rgb888 bg = {32, 32, 40};
-  for (size_t i = 0; i < pixels.size(); ++i) {
-    pixels[i] = bg;
-  }
-
-  const uint16_t pet565 = kStyleColors[style % 8];
-  bookworm::CreatureStyleColors pal;
-  pal.body = pet565;
-  pal.shadow = shade565(pet565, 2, 3);
-  pal.highlight = shade565(pet565, 5, 4);
-  pal.accent = 0x07E0;
-  pal.eye = 0xFFDF;
-  pal.eyePupil = 0x2965;
-
-  PreviewCtx ctx{pixels.data()};
-  const int cx = kW / 2;
-  const int cy = 72;
-  bookworm::drawProcCreature(plot, &ctx, cx, cy, pal, name, style, evo, flash);
-
-  if (!writePpm(outPath, pixels.data())) {
+  if (!renderOnePng(outPath, name, style, evo, flash)) {
     std::fprintf(stderr, "failed to write %s\n", outPath);
     return 1;
   }
-  std::printf("wrote %s (%dx%d PPM) name=%s style=%u evo=%u flash=%d\n", outPath, kW, kH, name,
+  std::printf("wrote %s (%dx%d PNG) name=%s style=%u evo=%u flash=%d\n", outPath, kW, kH, name,
               static_cast<unsigned>(style), static_cast<unsigned>(evo), flash ? 1 : 0);
   return 0;
 }

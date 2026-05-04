@@ -21,6 +21,14 @@ bool TimeService::hasValidLocalTime() {
   return now > 1700000000;
 }
 
+uint32_t TimeService::utcUnixSeconds() {
+  time_t now = time(nullptr);
+  if (now <= 1700000000) {
+    return 0;
+  }
+  return static_cast<uint32_t>(now);
+}
+
 String TimeService::formatHHMM() {
   struct tm ti;
   if (!getLocalTime(&ti)) {

@@ -5,6 +5,7 @@
 #include "bookworm/BookWormConfig.h"
 #include "bookworm/BookWormHatch.h"
 #include "bookworm/BookWormSim.h"
+#include "time/TimeService.h"
 
 namespace bookworm {
 
@@ -39,6 +40,9 @@ bool BookWormStore::loadInto(BookWormState &s) {
   s.totalReadMs = prefs_.getUInt("r_ms", 0);
   s.hatchedAtUtc = prefs_.getUInt("h_utc", 0);
   s.lastTickMs = prefs_.getUInt("lst", 0);
+  s.sickAccumMs = prefs_.getUInt("sick", 0);
+  s.overfullTicks = static_cast<uint16_t>(prefs_.getUShort("ovf", 0));
+  s.careScorePermille = static_cast<uint16_t>(prefs_.getUShort("care", 500));
   clampNeeds(s);
   BookWormSim::syncEvolution(s);
   return true;
@@ -57,13 +61,16 @@ void BookWormStore::save(const BookWormState &s) {
   prefs_.putUInt("r_ms", s.totalReadMs);
   prefs_.putUInt("h_utc", s.hatchedAtUtc);
   prefs_.putUInt("lst", s.lastTickMs);
+  prefs_.putUInt("sick", s.sickAccumMs);
+  prefs_.putUShort("ovf", s.overfullTicks);
+  prefs_.putUShort("care", s.careScorePermille);
 }
 
 void BookWormStore::ensureHatched(BookWormState &s, uint32_t nowMsMonotonic) {
   if (s.hatched) {
     return;
   }
-  hatchEgg(s, nowMsMonotonic);
+  hatchEgg(s, nowMsMonotonic, TimeService::utcUnixSeconds());
   save(s);
 }
 

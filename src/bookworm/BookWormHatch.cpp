@@ -15,7 +15,7 @@ const char *const kEndSyl[] = {"wick", "bot", "worm", "kin", "let", "mo", "pu", 
 
 }  // namespace
 
-void hatchEgg(BookWormState &s, uint32_t nowMsMonotonic, RandomU32Fn rnd) {
+void hatchEgg(BookWormState &s, uint32_t nowMsMonotonic, uint32_t hatchedAtUtc, RandomU32Fn rnd) {
   std::memset(&s, 0, sizeof(s));
   s.magic = kStateMagic;
   s.version = 1;
@@ -23,6 +23,7 @@ void hatchEgg(BookWormState &s, uint32_t nowMsMonotonic, RandomU32Fn rnd) {
   s.hunger = 180;
   s.boredom = 180;
   s.lastTickMs = nowMsMonotonic;
+  s.hatchedAtUtc = hatchedAtUtc;
 
   const uint32_t r1 = rnd();
   const uint32_t r2 = rnd();
@@ -33,6 +34,7 @@ void hatchEgg(BookWormState &s, uint32_t nowMsMonotonic, RandomU32Fn rnd) {
   std::snprintf(s.name, sizeof(s.name), "%s%s%s", a, b, c);
   s.styleId = static_cast<uint8_t>(rnd() % kStyleCount);
   s.evolutionStage = 0;
+  s.careScorePermille = 520;
 }
 
 }  // namespace bookworm

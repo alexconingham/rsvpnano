@@ -17,6 +17,7 @@
 #include "display/axs15231b.h"
 #include "text/LatinText.h"
 #include "bookworm/BookWormCreatureDraw.h"
+#include "bookworm/BookWormCc29.h"
 
 namespace {
 constexpr int kDisplayWidth = BoardConfig::DISPLAY_WIDTH;
@@ -2821,6 +2822,8 @@ void DisplayManager::renderCompanion(const bookworm::BookWormView &view, const S
   renderKey += view.moodLine;
   renderKey += "|f:";
   renderKey += String(view.flashDeskAction ? 1 : 0);
+  renderKey += "|a:";
+  renderKey += String(view.hibernate ? 0 : static_cast<uint32_t>(view.companionAnimMs >> 6));
   renderKey += "|z:";
   renderKey += String(view.hibernate ? 1 : 0);
   renderKey += "|bg:";
@@ -2829,6 +2832,16 @@ void DisplayManager::renderCompanion(const bookworm::BookWormView &view, const S
   renderKey += String(darkMode_ ? 1 : 0);
   renderKey += "|n:";
   renderKey += String(nightMode_ ? 1 : 0);
+  renderKey += "|toast:";
+  renderKey += view.toastLine;
+  renderKey += "|att:";
+  renderKey += view.attentionPing ? String(static_cast<int>((view.companionAnimMs / 500) & 1u)) : String("x");
+  renderKey += "|age:";
+  renderKey += view.ageLine;
+  renderKey += "|sk:";
+  renderKey += String(view.isSick ? 1 : 0);
+  renderKey += "|ca:";
+  renderKey += String(view.careAccent ? 1 : 0);
 
   if (!initialized_ || renderKey == lastRenderKey_) {
     return;
@@ -2840,26 +2853,29 @@ void DisplayManager::renderCompanion(const bookworm::BookWormView &view, const S
   const int virtualHeight = kDisplayHeight;
   clearVirtualBuffer(virtualWidth, virtualHeight);
 
-  static const uint16_t kStyleColors[] = {
-      0xF813, 0x07E8, 0x281F, 0xFFE5, 0xF81F, 0x05FF, 0xFDA0, 0xDEFB,
-  };
-  const uint16_t petRgb = kStyleColors[view.styleId % 8];
-
-  auto shade565 = [](uint16_t c, int num, int den) -> uint16_t {
-    uint32_t r = ((c >> 11) & 0x1Fu) * static_cast<uint32_t>(num) / static_cast<uint32_t>(den);
-    uint32_t g = ((c >> 5) & 0x3Fu) * static_cast<uint32_t>(num) / static_cast<uint32_t>(den);
-    uint32_t b = (c & 0x1Fu) * static_cast<uint32_t>(num) / static_cast<uint32_t>(den);
-    return static_cast<uint16_t>((r << 11) | (g << 5) | b);
-  };
-
   const String petLabel = "Lv" + String(view.evolutionStage);
-  drawTinyTextAt(petLabel, 8, 4, dimColor(), kTinyScale);
+  int headerX = 8;
+  const int petBaselineY = 4;
+  drawTinyTextAt(petLabel, headerX, petBaselineY, dimColor(), kTinyScale);
+  headerX += measureTinyTextWidth(petLabel, kTinyScale);
+  if (!view.ageLine.isEmpty()) {
+    headerX += 6;
+    drawTinyTextAt(view.ageLine, headerX, petBaselineY, dimColor(), kTinyScale);
+    headerX += measureTinyTextWidth(view.ageLine, kTinyScale);
+  }
+  if (view.careAccent) {
+    headerX += 4;
+    drawTinyTextAt("+", headerX, petBaselineY, 0xFFE0, kTinyScale);
+  }
 
   const String nameFit = fitTinyText(view.name, virtualWidth / 2, kTinyScale);
   drawTinyTextAt(nameFit, 8, 4 + kTinyGlyphHeight * kTinyScale + 2, wordColor(), kTinyScale);
 
   const int timeW = measureTinyTextWidth(timeText, kTinyScale);
   drawTinyTextAt(timeText, std::max(8, virtualWidth - timeW - 8), 4, wordColor(), kTinyScale);
+  if (view.attentionPing && ((view.companionAnimMs / 500) & 1u) != 0) {
+    drawTinyTextAt("!", std::max(8, virtualWidth - timeW - 22), 4, 0xF800, kTinyScale);
+  }
 
   const int cx = virtualWidth / 2;
   const int cy = 72;
@@ -2868,14 +2884,15 @@ void DisplayManager::renderCompanion(const bookworm::BookWormView &view, const S
     drawTinyTextCentered("Zzz", cy, dimColor(), kTinyScale);
   } else {
     bookworm::CreatureStyleColors pal;
-    pal.body = petRgb;
-    pal.shadow = shade565(petRgb, 2, 3);
-    pal.highlight = shade565(petRgb, 5, 4);
-    pal.accent = focusColor();
-    pal.eye = 0xFFDF;
-    pal.eyePupil = 0x2965;
+    bookworm::fillCreatureStyleColorsCc29(&pal, static_cast<uint8_t>(view.styleId));
     bookworm::drawProcCreature(companionCreaturePlot, this, cx, cy, pal, view.name.c_str(),
-                               view.styleId, view.evolutionStage, view.flashDeskAction);
+                               view.styleId, view.evolutionStage, view.flashDeskAction,
+                               view.companionAnimMs, view.hungerPermille, view.boredomPermille,
+                               view.isSick);
+  }
+
+  if (!view.toastLine.isEmpty()) {
+    drawTinyTextCentered(view.toastLine, 104, focusColor(), kTinyScale);
   }
 
   const int meterY = 118;

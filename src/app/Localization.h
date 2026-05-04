@@ -72,6 +72,9 @@ enum class UiText : uint8_t {
   BootOpenCompanion,
   BootOpenBook,
   PetResting,
+  CompanionNeedsSim,
+  CompanionEvolution,
+  CompanionNeedsPaused,
 };
 
 namespace Localization {
@@ -229,6 +232,12 @@ inline const char *text(UiLanguage language, UiText key) {
           return "Inicio: libro";
         case UiText::PetResting:
           return "Descansando";
+        case UiText::CompanionNeedsSim:
+          return "Sim. necesidades";
+        case UiText::CompanionEvolution:
+          return "Evolucion";
+        case UiText::CompanionNeedsPaused:
+          return "En pausa (ajustes)";
       }
       break;
     case UiLanguage::French:
@@ -351,6 +360,12 @@ inline const char *text(UiLanguage language, UiText key) {
           return "Demarrer: livre";
         case UiText::PetResting:
           return "Au repos";
+        case UiText::CompanionNeedsSim:
+          return "Sim. besoins";
+        case UiText::CompanionEvolution:
+          return "Evolution";
+        case UiText::CompanionNeedsPaused:
+          return "En pause (reglages)";
       }
       break;
     case UiLanguage::German:
@@ -473,6 +488,12 @@ inline const char *text(UiLanguage language, UiText key) {
           return "Start: Buch";
         case UiText::PetResting:
           return "Ruht";
+        case UiText::CompanionNeedsSim:
+          return "Bedarf-Sim";
+        case UiText::CompanionEvolution:
+          return "Entwicklung";
+        case UiText::CompanionNeedsPaused:
+          return "Pause (Einstell.)";
       }
       break;
     case UiLanguage::Romanian:
@@ -595,6 +616,12 @@ inline const char *text(UiLanguage language, UiText key) {
           return "Pornire: carte";
         case UiText::PetResting:
           return "Se odihneste";
+        case UiText::CompanionNeedsSim:
+          return "Sim. nevoi";
+        case UiText::CompanionEvolution:
+          return "Evolutie";
+        case UiText::CompanionNeedsPaused:
+          return "Pauza (setari)";
       }
       break;
     case UiLanguage::Polish:
@@ -717,6 +744,12 @@ inline const char *text(UiLanguage language, UiText key) {
           return "Start: ksiazka";
         case UiText::PetResting:
           return "Odpoczywa";
+        case UiText::CompanionNeedsSim:
+          return "Sym. potrzeb";
+        case UiText::CompanionEvolution:
+          return "Ewolucja";
+        case UiText::CompanionNeedsPaused:
+          return "Pauza (ustaw.)";
       }
       break;
     case UiLanguage::English:
@@ -840,6 +873,12 @@ inline const char *text(UiLanguage language, UiText key) {
           return "Boot: book";
         case UiText::PetResting:
           return "Resting";
+        case UiText::CompanionNeedsSim:
+          return "Needs sim";
+        case UiText::CompanionEvolution:
+          return "Evolution";
+        case UiText::CompanionNeedsPaused:
+          return "Needs paused";
       }
       break;
   }
