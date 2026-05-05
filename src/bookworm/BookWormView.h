@@ -12,6 +12,7 @@ struct BookWormView {
   uint8_t evolutionStage = 0;
   uint16_t hungerPermille = 0;
   uint16_t boredomPermille = 0;
+  uint16_t xpPermille = 0;
   String moodLine;
   bool flashDeskAction = false;
   bool hibernate = false;
@@ -27,6 +28,10 @@ struct BookWormView {
   bool isSick = false;
   /// High care score — small gold accent on companion header.
   bool careAccent = false;
+  /// Night mode — invert UI colors (but not the pet creature itself).
+  bool nightMode = false;
+  /// XP filled past current evolution threshold but stage not advanced yet (awaiting tap).
+  bool evolutionReady = false;
 };
 
 }  // namespace bookworm

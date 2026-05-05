@@ -42,9 +42,11 @@ bool BookWormStore::loadInto(BookWormState &s) {
   s.lastTickMs = prefs_.getUInt("lst", 0);
   s.sickAccumMs = prefs_.getUInt("sick", 0);
   s.overfullTicks = static_cast<uint16_t>(prefs_.getUShort("ovf", 0));
-  s.careScorePermille = static_cast<uint16_t>(prefs_.getUShort("care", 500));
+  s.careScorePermille = static_cast<uint16_t>(prefs_.getUShort("care", 0));
+  s.xpBoostTicks = prefs_.getUChar("xpb", 0);
   clampNeeds(s);
-  BookWormSim::syncEvolution(s);
+  // Do NOT auto-advance evolutionStage here — evolution requires a tap on the companion
+  // when the XP bar fills. Stored stage is the user-confirmed stage.
   return true;
 }
 
@@ -64,6 +66,7 @@ void BookWormStore::save(const BookWormState &s) {
   prefs_.putUInt("sick", s.sickAccumMs);
   prefs_.putUShort("ovf", s.overfullTicks);
   prefs_.putUShort("care", s.careScorePermille);
+  prefs_.putUChar("xpb", s.xpBoostTicks);
 }
 
 void BookWormStore::ensureHatched(BookWormState &s, uint32_t nowMsMonotonic) {

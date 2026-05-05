@@ -1041,7 +1041,7 @@ String normalizeDisplayText(const String &text) {
   return collapsed;
 }
 
-void pushCleanWord(String token, std::vector<String> &words) {
+void pushCleanWord(String token, WordStore &words) {
   trimAsciiWhitespace(token);
 
   if (token.length() >= 3 && static_cast<uint8_t>(token[0]) == 0xEF &&
@@ -1139,7 +1139,7 @@ String directiveValue(const String &line, const char *directive) {
   return normalizeDisplayText(value);
 }
 
-bool appendLineWords(const String &line, std::vector<String> &words) {
+bool appendLineWords(const String &line, WordStore &words) {
   const String normalizedLine = normalizeDisplayText(line);
   String currentWord;
 
@@ -1379,10 +1379,6 @@ void StorageManager::refreshBooks() {
   refreshBookPaths();
 }
 
-bool StorageManager::loadFirstBookWords(std::vector<String> &words, String *loadedPath) {
-  return loadBookWords(0, words, loadedPath);
-}
-
 size_t StorageManager::bookCount() const { return bookPaths_.size(); }
 
 String StorageManager::bookPath(size_t index) const {
@@ -1565,17 +1561,6 @@ bool StorageManager::loadBookContent(size_t index, BookContent &book, String *lo
   return false;
 }
 
-bool StorageManager::loadBookWords(size_t index, std::vector<String> &words, String *loadedPath,
-                                   size_t *loadedIndex) {
-  BookContent book;
-  if (!loadBookContent(index, book, loadedPath, loadedIndex)) {
-    words.clear();
-    return false;
-  }
-
-  words = std::move(book.words);
-  return true;
-}
 
 void StorageManager::refreshBookPaths() {
   if (!mounted_) {
@@ -1608,34 +1593,68 @@ void StorageManager::refreshBookPaths() {
 bool StorageManager::parseFile(File &file, BookContent &book, bool rsvpFormat) {
   book.clear();
   String line;
+  line.reserve(128);
   bool paragraphPending = true;
+  bool limitReached = false;
 
-  while (file.available()) {
-    const char c = static_cast<char>(file.read());
+  const size_t fileSize = static_cast<size_t>(file.size());
+  size_t bytesRead = 0;
+  uint32_t lastYieldMs = millis();
 
-    if (c == '\r') {
-      continue;
-    }
-
-    if (c == '\n') {
-      const bool keepReading =
-          rsvpFormat ? processRsvpLine(line, book, paragraphPending)
-                     : processBookLine(line, book, paragraphPending);
-      if (!keepReading) {
-        if (hasBookWordLimit()) {
-          Serial.printf("[storage] Reached %lu word limit, truncating book\n",
-                        static_cast<unsigned long>(kMaxBookWords));
-        }
-        break;
-      }
-      line = "";
-      continue;
-    }
-
-    line += c;
+  // Pre-allocate a single flat PSRAM buffer for all word chars (avoids thousands of
+  // small heap allocations that exhaust internal DRAM on large books).
+  if (fileSize > 0) {
+    const size_t estimatedWords = std::min(fileSize / 6, static_cast<size_t>(300000));
+    book.words.reserveBuffer(fileSize);   // word chars <= file bytes (conservative)
+    book.words.reserveWords(estimatedWords);
+    logHeapSnapshot("after words.reserve");
   }
 
-  if (!line.isEmpty() && !reachedBookWordLimit(book.words.size())) {
+  char buf[512];
+
+  while (!limitReached && file.available()) {
+    // Yield to the idle task periodically so the watchdog doesn't fire on large books.
+    const uint32_t nowMs = millis();
+    if (nowMs - lastYieldMs >= 150) {
+      delay(1);
+      lastYieldMs = millis();
+      if (fileSize > 0) {
+        const int pct = static_cast<int>((bytesRead * 100UL) / fileSize);
+        notifyStatus("Loading book", "", "", pct);
+      }
+    }
+
+    const int n = file.read(reinterpret_cast<uint8_t *>(buf), sizeof(buf));
+    if (n <= 0) {
+      break;
+    }
+    bytesRead += static_cast<size_t>(n);
+
+    for (int i = 0; i < n && !limitReached; ++i) {
+      const char c = buf[i];
+      if (c == '\r') {
+        continue;
+      }
+      if (c == '\n') {
+        const bool keepReading =
+            rsvpFormat ? processRsvpLine(line, book, paragraphPending)
+                       : processBookLine(line, book, paragraphPending);
+        if (!keepReading) {
+          if (hasBookWordLimit()) {
+            Serial.printf("[storage] Reached %lu word limit, truncating book\n",
+                          static_cast<unsigned long>(kMaxBookWords));
+          }
+          limitReached = true;
+          break;
+        }
+        line = "";
+        continue;
+      }
+      line += c;
+    }
+  }
+
+  if (!limitReached && !line.isEmpty() && !reachedBookWordLimit(book.words.size())) {
     if (rsvpFormat) {
       processRsvpLine(line, book, paragraphPending);
     } else {

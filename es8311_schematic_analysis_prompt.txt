@@ -1,0 +1,41 @@
+SCHEMATIC ANALYSIS PROMPT FOR ES8311 AUDIO CODEC
+
+You are analyzing the ESP32-S3-Touch-LCD-3.49 schematic to determine the ES8311 audio codec configuration.
+
+OBJECTIVE:
+Identify the exact ES8311 output pin connections to the speaker/audio output on the board.
+
+SPECIFIC INFORMATION NEEDED:
+
+1. ES8311 OUTPUT PIN ROUTING:
+   - Which ES8311 output pins are actually used? (LOUT1, LOUT2, ROUT1, ROUT2, or other variants)
+   - Are they differential outputs or single-ended?
+   - What is the impedance/load type?
+
+2. SPEAKER HEADER CONNECTION:
+   - The board has an "MX1.25 2PIN Speaker Header" on the back side
+   - Which ES8311 pins connect to which pins on this speaker header?
+   - What is the pin assignment (left/right/ground)?
+
+3. SUPPORTING CIRCUITRY:
+   - Are there any capacitors, resistors, or filtering between ES8311 and the speaker header?
+   - Is there a pull-up/pull-down configuration on any outputs?
+   - Are there any mute pins or control signals?
+
+4. ES8311 CONFIGURATION REQUIREMENTS:
+   - What is the recommended I2S format (slave/master, clock polarity, frame sync)?
+   - Are there any specific register settings shown in the schematic notes?
+   - What clock frequencies are used?
+
+5. POWER SUPPLY:
+   - What voltage is supplied to the ES8311?
+   - Are there any power management pins that need to be enabled?
+
+DELIVERABLE:
+Provide a summary with:
+- ES8311 pins that drive the speaker output (register names if shown)
+- Speaker header pin assignments (L+, R+, GND)
+- Any initialization notes or configuration requirements visible in the schematic
+- Register addresses/values that might be referenced in schematic annotations
+
+This information will be used to fix audio output that synthesizes correctly but doesn't produce sound due to incorrect codec output routing configuration.

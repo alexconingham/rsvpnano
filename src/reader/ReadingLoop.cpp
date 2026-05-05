@@ -475,12 +475,22 @@ void ReadingLoop::begin(uint32_t nowMs) {
   setCurrentWordFromIndex();
 }
 
-void ReadingLoop::setWords(std::vector<String> words, uint32_t nowMs) {
+void ReadingLoop::setWords(WordStore words, uint32_t nowMs) {
   loadedWords_ = std::move(words);
   idleNoBook_ = false;
   currentIndex_ = 0;
   lastAdvanceMs_ = nowMs;
   setCurrentWordFromIndex();
+}
+
+void ReadingLoop::setWords(std::vector<String> words, uint32_t nowMs) {
+  WordStore ws;
+  size_t totalChars = 0;
+  for (const String& w : words) totalChars += w.length() + 1;
+  ws.reserveBuffer(totalChars + 1);
+  ws.reserveWords(words.size());
+  for (const String& w : words) ws.push_back(w);
+  setWords(std::move(ws), nowMs);
 }
 
 void ReadingLoop::start(uint32_t nowMs) { lastAdvanceMs_ = nowMs; }
@@ -518,7 +528,7 @@ uint32_t ReadingLoop::currentWordDurationMs() const {
   const size_t nextIndex = currentIndex_ + 1;
   if (!loadedWords_.empty()) {
     if (nextIndex < loadedWords_.size()) {
-      nextWordStartsLowercase = startsWithLowercaseLetter(loadedWords_[nextIndex]);
+      nextWordStartsLowercase = startsWithLowercaseLetter(String(loadedWords_.rawAt(nextIndex)));
     }
   } else if (nextIndex < kDemoWordCount) {
     nextWordStartsLowercase = startsWithLowercaseLetter(String(kDemoWords[nextIndex]));
@@ -679,19 +689,15 @@ void ReadingLoop::setCurrentWordFromIndex() {
 }
 
 size_t ReadingLoop::wordCount() const {
-  if (!loadedWords_.empty()) {
-    return loadedWords_.size();
-  }
-  if (idleNoBook_) {
-    return 0;
-  }
+  if (!loadedWords_.empty()) return loadedWords_.size();
+  if (idleNoBook_) return 0;
   return kDemoWordCount;
 }
 
 bool ReadingLoop::isIdleNoBook() const { return idleNoBook_; }
 
 void ReadingLoop::setIdleNoBook(uint32_t nowMs) {
-  loadedWords_.clear();
+  loadedWords_.clear();  // frees the flat PSRAM buffer
   idleNoBook_ = true;
   currentIndex_ = 0;
   lastAdvanceMs_ = nowMs;
@@ -704,9 +710,7 @@ void ReadingLoop::exitIdleUseDemo(uint32_t nowMs) {
 }
 
 String ReadingLoop::wordAt(size_t index) const {
-  if (!loadedWords_.empty()) {
-    return loadedWords_[index];
-  }
+  if (!loadedWords_.empty()) return loadedWords_.wordAt(index);
   return String(kDemoWords[index]);
 }
 

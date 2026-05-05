@@ -95,7 +95,17 @@ class DisplayManager {
   void renderStatus(const String &title, const String &line1 = "", const String &line2 = "");
   void renderProgress(const String &title, const String &line1 = "", const String &line2 = "",
                       int progressPercent = -1);
-  void renderCompanion(const bookworm::BookWormView &view, const String &timeText);
+  void renderCompanion(const bookworm::BookWormView &view, const String &timeText,
+                       bool hasBook = false);
+  /// Wiggling pixel-art egg used by the HatchEgg state. animMs is monotonic ms since the
+  /// state was entered (drives wobble animation).
+  void renderEgg(uint32_t animMs);
+  /// Centred creature reveal used by HatchReveal and EvolveReveal. When `withReadmeNote`
+  /// is true a small footer note prompts the user to read the README.
+  void renderHatchReveal(const bookworm::BookWormView &view, bool withReadmeNote);
+  /// Full-screen flash sequence for the EvolveFlash state. `phaseMs` is monotonic ms into
+  /// the flash; ~900 ms total. Caller stops invoking when the flash window expires.
+  void renderEvolveFlash(uint32_t phaseMs);
   /// Pixel chunk in virtual coordinates (used by procedural companion art).
   void plotVirtualFill(int x, int y, int w, int h, uint16_t rgb565);
 

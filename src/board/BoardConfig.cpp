@@ -141,6 +141,7 @@ uint8_t batteryPercentForVoltage(float voltage) {
 }  // namespace
 
 void begin() {
+  Serial.println("[board] init start");
   pinMode(PIN_BOOT_BUTTON, INPUT_PULLUP);
   pinMode(PIN_PWR_BUTTON, INPUT_PULLUP);
   pinMode(PIN_LCD_BACKLIGHT, OUTPUT);
@@ -153,8 +154,16 @@ void begin() {
   Wire1.begin(PIN_I2C_SDA, PIN_I2C_SCL);
   Wire1.setClock(300000);
   Wire1.setTimeOut(10);
+  Serial.println("[board] I2C init done");
+
   holdBatteryPowerIfAvailable();
   disableBatteryAdcPathIfAvailable();
+  if (configureTca9554OutputPin(TCA9554_PIN_PA_EN, true)) {
+    Serial.println("[board] Speaker amp (PA_EN) enabled");
+  } else {
+    Serial.println("[board] Speaker amp (PA_EN) set failed");
+  }
+  Serial.println("[board] init done");
 
   pinMode(PIN_BATTERY_ADC, INPUT);
   analogReadResolution(12);

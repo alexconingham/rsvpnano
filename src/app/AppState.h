@@ -8,4 +8,8 @@ enum class AppState {
   Menu,
   UsbTransfer,
   Sleeping,
+  HatchEgg,
+  HatchReveal,
+  EvolveFlash,
+  EvolveReveal,
 };

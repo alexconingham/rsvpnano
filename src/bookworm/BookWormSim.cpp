@@ -16,13 +16,8 @@ void relieveSickFromCare(BookWormState &s) {
   }
 }
 
-void bumpCareDesk(BookWormState &s) {
-  uint32_t c = s.careScorePermille;
-  c = (c * 6u + 980u) / 7u;
-  if (c > 1000u) {
-    c = 1000u;
-  }
-  s.careScorePermille = static_cast<uint16_t>(c);
+void activateXpBoost(BookWormState &s) {
+  s.xpBoostTicks = kXpBoostTicks;
 }
 
 }  // namespace
@@ -69,6 +64,10 @@ void BookWormSim::tick(BookWormState &s, uint32_t deltaMs) {
                             (3600000ULL * kNeedMax));
   s.hunger = static_cast<uint16_t>(std::min<uint32_t>(s.hunger + hungerDelta, kNeedMax));
   s.boredom = static_cast<uint16_t>(std::min<uint32_t>(s.boredom + boredomDelta, kNeedMax));
+
+  if (s.xpBoostTicks > 0) {
+    --s.xpBoostTicks;
+  }
 }
 
 void BookWormSim::onReadingWords(BookWormState &s, uint32_t wordsAdvanced, bool applyNeedsEffect,
@@ -77,29 +76,17 @@ void BookWormSim::onReadingWords(BookWormState &s, uint32_t wordsAdvanced, bool 
     return;
   }
   if (applyNeedsEffect) {
-    const uint32_t hLoss = static_cast<uint32_t>(kReadingHungerHealPermille) * wordsAdvanced;
-    const uint32_t bLoss = static_cast<uint32_t>(kReadingBoredomHealPermille) * wordsAdvanced;
-    if (s.hunger > hLoss) {
-      s.hunger = static_cast<uint16_t>(s.hunger - hLoss);
-    } else {
-      s.hunger = 0;
-    }
-    if (s.boredom > bLoss) {
-      s.boredom = static_cast<uint16_t>(s.boredom - bLoss);
-    } else {
-      s.boredom = 0;
-    }
-    uint32_t c = s.careScorePermille;
-    c = (c * 19u + 760u) / 20u;
-    if (c > 1000u) {
-      c = 1000u;
-    }
-    s.careScorePermille = static_cast<uint16_t>(c);
+    const uint32_t mult = (s.xpBoostTicks > 0) ? kXpBoostHealMult : 1u;
+    const uint32_t hLoss = static_cast<uint32_t>(kReadingHungerHealPermille) * wordsAdvanced * mult;
+    const uint32_t bLoss = static_cast<uint32_t>(kReadingBoredomHealPermille) * wordsAdvanced * mult;
+    s.hunger  = static_cast<uint16_t>(hLoss >= s.hunger  ? 0u : s.hunger  - hLoss);
+    s.boredom = static_cast<uint16_t>(bLoss >= s.boredom ? 0u : s.boredom - bLoss);
   }
   s.totalWordsRead += wordsAdvanced;
-  if (syncEvolutionStage) {
-    syncEvolution(s);
-  }
+  // Evolution stage no longer auto-advances on word reads — the player must tap to evolve
+  // when XP fills. `syncEvolutionStage` parameter retained for callers but is now a no-op
+  // here; explicit settings flows still call syncEvolution() directly when needed.
+  (void)syncEvolutionStage;
 }
 
 void BookWormSim::deskFeed(BookWormState &s) {
@@ -112,7 +99,7 @@ void BookWormSim::deskFeed(BookWormState &s) {
     s.hunger = 0;
   }
   relieveSickFromCare(s);
-  bumpCareDesk(s);
+  activateXpBoost(s);
 }
 
 void BookWormSim::deskPlay(BookWormState &s) {
@@ -125,7 +112,7 @@ void BookWormSim::deskPlay(BookWormState &s) {
     s.boredom = 0;
   }
   relieveSickFromCare(s);
-  bumpCareDesk(s);
+  activateXpBoost(s);
 }
 
 void BookWormSim::deskPet(BookWormState &s) {
@@ -143,7 +130,7 @@ void BookWormSim::deskPet(BookWormState &s) {
     s.boredom = 0;
   }
   relieveSickFromCare(s);
-  bumpCareDesk(s);
+  activateXpBoost(s);
 }
 
 void BookWormSim::deskBoop(BookWormState &s) {
@@ -161,7 +148,7 @@ void BookWormSim::deskBoop(BookWormState &s) {
     s.boredom = 0;
   }
   relieveSickFromCare(s);
-  bumpCareDesk(s);
+  activateXpBoost(s);
 }
 
 void BookWormSim::syncEvolution(BookWormState &s) {

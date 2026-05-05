@@ -34,7 +34,7 @@ void hatchEgg(BookWormState &s, uint32_t nowMsMonotonic, uint32_t hatchedAtUtc, 
   std::snprintf(s.name, sizeof(s.name), "%s%s%s", a, b, c);
   s.styleId = static_cast<uint8_t>(rnd() % kStyleCount);
   s.evolutionStage = 0;
-  s.careScorePermille = 520;
+  s.careScorePermille = 0;
 }
 
 }  // namespace bookworm

@@ -6,6 +6,7 @@
 
 #include "app/AppState.h"
 #include "app/Localization.h"
+#include "audio/BookWormAudio.h"
 #include "bookworm/BookWormState.h"
 #include "bookworm/BookWormStore.h"
 #include "bookworm/BookWormView.h"
@@ -62,6 +63,7 @@ class App {
     SettingsDisplay,
     SettingsPacing,
     SettingsBookworm,
+    SettingsHelp,
     WifiSettings,
     WifiNetworks,
     TextEntry,
@@ -137,6 +139,9 @@ class App {
   void handlePowerButton(uint32_t nowMs);
   void toggleMenuFromPowerButton(uint32_t nowMs);
   void openMainMenu(uint32_t nowMs);
+  void openSettingsFromPowerButton(uint32_t nowMs);
+  void pauseAndGoToCompanion(uint32_t nowMs);
+  void maybeStartWifiForClock();
   void cycleBrightness();
   void cycleThemeMode(uint32_t nowMs);
   void cycleUiLanguage(uint32_t nowMs);
@@ -279,11 +284,18 @@ class App {
   void maybeTickBookworm(uint32_t nowMs);
   void maybePersistBookworm(uint32_t nowMs, bool force);
   bookworm::BookWormView buildBookwormView(uint32_t nowMs);
+  bool bookwormEvolutionReady() const;
   void showCompanionToast(uint32_t nowMs, const char *msg);
   void renderCompanionScreen(uint32_t nowMs);
   bool prepareBookForReading(uint32_t nowMs);
   void enterCompanionHome(uint32_t nowMs);
   void handleCompanionTouch(const TouchEvent &event, uint32_t nowMs);
+  void handleHatchEggTouch(const TouchEvent &event, uint32_t nowMs);
+  void handleHatchRevealTouch(const TouchEvent &event, uint32_t nowMs);
+  void handleEvolveRevealTouch(const TouchEvent &event, uint32_t nowMs);
+  void enterHatchEgg(uint32_t nowMs);
+  void completeHatchToReveal(uint32_t nowMs);
+  void startEvolveFlash(uint32_t nowMs);
 
   AppState state_ = AppState::Booting;
   DisplayManager display_;
@@ -368,6 +380,8 @@ class App {
   bool bootToBook_ = false;
   bool bookwormCompanionStatesEnabled_ = true;
   bool bookwormEvolutionEnabled_ = true;
+  bool bookwormNightMode_ = false;
+  bool audioMuted_ = false;
   uint32_t lastBookwormTickMs_ = 0;
   uint32_t lastBookwormPersistMs_ = 0;
   uint32_t companionDeskFlashUntilMs_ = 0;
@@ -375,4 +389,8 @@ class App {
   uint32_t companionToastUntilMs_ = 0;
   uint32_t companionLastFeedMs_ = 0;
   uint8_t companionFeedBurst_ = 0;
+  uint32_t hatchEggStartMs_ = 0;
+  uint32_t lastHatchEggRenderMs_ = 0;
+  uint32_t evolveFlashStartMs_ = 0;
+  uint32_t evolveFlashUntilMs_ = 0;
 };

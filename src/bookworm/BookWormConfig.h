@@ -23,9 +23,9 @@ inline constexpr uint16_t kDeskBoopBoredom = 35;
 
 inline constexpr uint8_t kStyleCount = 8;
 
-inline constexpr uint32_t kEvolveStage1Words = 3000;
-inline constexpr uint32_t kEvolveStage2Words = 12000;
-inline constexpr uint32_t kEvolveStage3Words = 50000;
+inline constexpr uint32_t kEvolveStage1Words = 5000;
+inline constexpr uint32_t kEvolveStage2Words = 25000;
+inline constexpr uint32_t kEvolveStage3Words = 100000;
 
 inline constexpr uint32_t kSimTickIntervalMs = 500;
 inline constexpr uint32_t kPersistenceDebounceMs = 45000;
@@ -38,7 +38,9 @@ inline constexpr uint32_t kSickCareReliefMs = 200000;
 /// Feed-spam: desk feeds within a few seconds stack `overfullTicks` (hunger rises faster).
 inline constexpr uint16_t kOverfullTicksFromSpam = 100;
 
-/// Care score permille (0–1000); desk/boop/reading nudge upward; unlocks UI accent.
-inline constexpr uint16_t kCareAccentMinPermille = 840;
+/// Desk-action boost: healing per word is multiplied while xpBoostTicks > 0.
+inline constexpr uint8_t  kXpBoostHealMult  = 2;    // 2× hunger/boredom heal rate
+/// How long the desk-action XP boost lasts in sim ticks (1 tick = 500 ms).
+inline constexpr uint8_t  kXpBoostTicks     = 120;  // ~60 s
 
 }  // namespace bookworm

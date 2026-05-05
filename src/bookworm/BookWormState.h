@@ -23,8 +23,10 @@ struct BookWormState {
   uint32_t sickAccumMs = 0;
   /// Gorged debuff: hunger rises faster until ticks expire.
   uint16_t overfullTicks = 0;
-  /// Smoothed care / bonding score for cosmetic unlock (0–1000).
-  uint16_t careScorePermille = 500;
+  /// XP bar (0–1000, wraps); filled by reading words, rate boosted by desk actions.
+  uint16_t careScorePermille = 0;
+  /// Remaining sim ticks of XP boost from desk actions (1 tick = 500 ms).
+  uint8_t xpBoostTicks = 0;
 };
 
 void clampNeeds(BookWormState &s);

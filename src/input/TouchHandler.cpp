@@ -144,17 +144,27 @@ bool TouchHandler::poll(TouchEvent &event) {
   event.touched = true;
   event.gesture = 0;
   event.phase = touchActive_ ? TouchPhase::Move : TouchPhase::Start;
-  const uint16_t rawLongAxis = static_cast<uint16_t>(((data[2] & 0x0F) << 8) | data[3]);
-  const uint16_t rawShortAxis = static_cast<uint16_t>(((data[4] & 0x0F) << 8) | data[5]);
-  const uint16_t mappedX = clampDisplayX(rawLongAxis);
-  const uint16_t mappedY = clampDisplayY(rawShortAxis);
+  // AXS15231B reports coordinates in native panel space (172 x 640 portrait). The UI draws in
+  // logical landscape (DISPLAY_WIDTH x DISPLAY_HEIGHT). Map using the same native<->logical
+  // rules as DisplayManager::flushScaledFrame().
+  // First pair is the panel's long axis (0–639), second is the short axis (0–171).
+  const uint16_t rawMajor = static_cast<uint16_t>(((data[2] & 0x0F) << 8) | data[3]);
+  const uint16_t rawMinor = static_cast<uint16_t>(((data[4] & 0x0F) << 8) | data[5]);
+  const uint16_t nx =
+      std::min(rawMinor, static_cast<uint16_t>(BoardConfig::PANEL_NATIVE_WIDTH - 1));
+  const uint16_t ny =
+      std::min(rawMajor, static_cast<uint16_t>(BoardConfig::PANEL_NATIVE_HEIGHT - 1));
+  uint16_t vx;
+  uint16_t vy;
   if (uiRotated180_) {
-    event.x = static_cast<uint16_t>(BoardConfig::DISPLAY_WIDTH - 1 - mappedX);
-    event.y = static_cast<uint16_t>(BoardConfig::DISPLAY_HEIGHT - 1 - mappedY);
+    vx = static_cast<uint16_t>((BoardConfig::PANEL_NATIVE_HEIGHT - 1) - ny);
+    vy = static_cast<uint16_t>((BoardConfig::PANEL_NATIVE_WIDTH - 1) - nx);
   } else {
-    event.x = mappedX;
-    event.y = mappedY;
+    vx = static_cast<uint16_t>((BoardConfig::PANEL_NATIVE_HEIGHT - 1) - ny);
+    vy = nx;
   }
+  event.x = clampDisplayX(vx);
+  event.y = clampDisplayY(vy);
   touchActive_ = true;
   lastX_ = event.x;
   lastY_ = event.y;

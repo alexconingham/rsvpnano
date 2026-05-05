@@ -11,7 +11,7 @@ namespace bookworm {
 
 namespace {
 
-constexpr int kCellPx = 3;
+constexpr int kCellPx = 4;
 constexpr int kGridH = 28;
 constexpr int kGridW = 36;
 constexpr int kGridCx = kGridW / 2;

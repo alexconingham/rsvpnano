@@ -31,9 +31,18 @@ constexpr int PIN_I2C_SCL = 48;
 constexpr int PIN_TOUCH_SDA = 17;
 constexpr int PIN_TOUCH_SCL = 18;
 
+/// ES8311 playback (Waveshare `S3_LCD_3_49` / board_cfg.txt). Uses Wire1 (pins 47/48).
+constexpr int PIN_I2S_MCLK = 7;
+constexpr int PIN_I2S_BCLK = 15;
+constexpr int PIN_I2S_WS = 46;
+constexpr int PIN_I2S_DOUT = 45;
+constexpr int PIN_I2S_DIN = 6;
+constexpr uint8_t ES8311_I2C_ADDR = 0x18;
+
 constexpr int TCA9554_ADDRESS = 0x20;
 constexpr uint8_t TCA9554_PIN_BATTERY_ADC_ENABLE = 1;
 constexpr uint8_t TCA9554_PIN_SYS_EN = 6;
+constexpr uint8_t TCA9554_PIN_PA_EN = 7;  // Speaker amp enable — must be HIGH for audio output.
 
 struct BatteryStatus {
   bool present = false;

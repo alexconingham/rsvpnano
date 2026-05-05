@@ -10,7 +10,7 @@ void TimeService::requestSntpOnce() {
     return;
   }
   sntpStarted_ = true;
-  setenv("TZ", "UTC0", 1);
+  setenv("TZ", "NZST-12NZDT,M9.5.0,M4.1.0/3", 1);
   tzset();
   // Arduino-ESP32 2.0.x exposes configTime() (LWIP SNTP); avoids esp_sntp_* API differences.
   configTime(0, 0, "pool.ntp.org", "time.google.com");

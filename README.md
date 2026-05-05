@@ -19,12 +19,18 @@ RSVP Nano is an open-source ESP32-S3 reading device for showing text one word at
 
 ## Book Worm (this fork)
 
-This tree extends upstream RSVP Nano with a **Book Worm** desk companion:
+This tree extends upstream RSVP Nano with a **Book Worm** companion screen:
 
-- After boot, the device shows the companion (procedural creature, needs meters, clock) instead of opening the last book immediately unless you choose **Boot: book** in **Settings → Book Worm**. Use **Resume** in the menu to load your saved book (or the first library book / demo text).
-- **Desk** in the main menu returns home: saves progress, unloads the book from RAM, and shows the companion again.
-- **Feed / Play / Pet** (lower third, three zones), **boop** (tap the creature above that strip), reading while playing affects needs when the sim is on. **Settings → Book Worm**: **Hibernate**, **Needs sim** on/off, **Evolution** on/off, boot target.
-- Pet data is stored in NVS namespace `bworm` (separate from reading preferences). Time-of-day uses SNTP after a successful Wi‑Fi connection (for example during **Firmware update** / OTA). Until sync, the clock shows `--:--`.
+- After boot the device shows the companion screen — a procedural creature, hunger/tiredness meters, XP bar, and a clock — instead of opening the last book immediately. Use **Resume** in the menu to continue your book. Toggle boot target in **Settings → Book Worm**.
+- **Book Worm** in the main menu returns to the companion: saves progress and unloads the book from RAM.
+- **Companion layout:** large creature on the left; right panel shows name, level, age, three meters (HGR hunger, TIR tiredness, XP), and three action buttons.
+- **PLAY / FEED / PET** (bottom-right buttons) reduce tiredness or hunger and start a 60-second XP boost — reading while boosted heals needs at 2× rate. Tap the creature to **boop** it. Each action plays distinctive polyphonic chime sounds.
+- **Sound:** Polyphonic audio feedback for all companion interactions — ascending chimes for play, warm tones for feed, playful bounces for pet, soft taps for boop, sad descending tones for illness, and celebratory ascending tones for evolution.
+- **XP bar** shows progress within the current evolution stage (grey → cyan → gold → magenta across four stages: 0 / 5k / 25k / 100k total words). The gold **+** next to the level lights up while a boost is active.
+- **Clock** shows local time via SNTP after Wi‑Fi connects (configure credentials in `/config/ota.conf` on the SD card or via **Settings → Wi‑Fi**). Tap the clock badge to jump back to your book. Until SNTP syncs the clock shows `--:--`.
+- **Night Mode** inverts UI colors on the companion screen — toggle it by holding the `BOOT` button while viewing the companion.
+- Pet data is stored in NVS namespace `bworm` (separate from reading preferences).
+- **Settings → Book Worm:** Hibernate, Needs sim on/off, Evolution on/off, boot target, and pet reset.
 - For **OTA from your own GitHub fork**, set `github_owner` and `github_repo` in `/config/ota.conf` on the SD card (see `docs/ota.conf.example`) or adjust the defaults in `src/update/OtaUpdater.h` before building. The helper `tools/fetch_release_firmware.py` accepts `--repo owner/name` for pulling release binaries into `web/firmware/`.
 - Companion **creature** is **procedural** (mirrored random fill in an ellipse, inspired by [Dave Bollinger–style pixel spaceships](https://web.archive.org/web/20080228054410/http://www.davebollinger.com/works/pixelspaceships/) and [pixel-sprite-generator](https://github.com/zfedoran/pixel-sprite-generator)): deterministic from pet name, palette, and evolution stage. Optional dev firmware: `pio run -e waveshare_esp32s3_usb_msc_bwdev` enables **Dev: Regenerate pet** and **Dev: +Evolution** for testing.
 
@@ -144,10 +150,10 @@ Most reader settings and your current reading position are saved automatically.
 ### Hardware Buttons
 
 - `BOOT` short press: cycle brightness.
-- `BOOT` hold: cycle theme (`Dark -> Light -> Night -> Dark`).
-- `PWR` short press: open the menu from the reader.
+- `BOOT` hold: on the companion screen, toggle night mode; on the reader, pause and return to companion.
+- `PWR` short press from companion or reader: open **Settings** directly.
 - `PWR` short press while in a submenu: jump back to the main menu.
-- `PWR` short press while on the main menu: return to the reader.
+- `PWR` short press while on the main menu: open **Settings**.
 - `PWR` hold: power the device off.
 
 ### Reader Shortcuts
@@ -210,6 +216,7 @@ Main Menu
 |- Library
 |  |- Back
 |  `- Book list
+|- Book Worm          (returns to companion screen)
 |- Settings
 |  |- Back
 |  |- Display
@@ -231,18 +238,27 @@ Main Menu
 |  |  |- Guide gap
 |  |  `- Reset
 |  |- Word pacing
-|     |- Back
-|     |- Long words
-|     |- Complexity
-|     |- Punctuation
-|     `- Reset pacing
+|  |  |- Back
+|  |  |- Long words
+|  |  |- Complexity
+|  |  |- Punctuation
+|  |  `- Reset pacing
 |  |- Wi-Fi
-|     |- Back
-|     |- Network
-|     |- Choose network
-|     |- Auto OTA
-|     `- Forget network
-|  `- Firmware update
+|  |  |- Back
+|  |  |- Network
+|  |  |- Choose network
+|  |  |- Auto OTA
+|  |  `- Forget network
+|  |- Book Worm
+|  |  |- Back
+|  |  |- Hibernate: On/Off
+|  |  |- Needs sim: On/Off
+|  |  |- Evolution: On/Off
+|  |  |- Boot: companion / book
+|  |  |- (!RE-HATCH!)
+|  |  `- Mute: On/Off
+|  |- Firmware update
+|  `- Help             (scrollable quick-reference)
 |- USB transfer (default USB build)
 `- Power off
 ```
@@ -282,6 +298,15 @@ Main Menu
 - `Choose network`: scan nearby SSIDs and open the on-device keyboard for secure networks.
 - `Auto OTA`: check `releases/latest` during boot when Wi-Fi credentials are available.
 - `Forget network`: clear the stored Wi-Fi credentials from `Preferences`.
+
+#### Book Worm
+
+- `Hibernate`: put the companion into hibernation mode (disables needs simulation).
+- `Needs sim`: turn the hunger and tiredness simulation on or off.
+- `Evolution`: turn pet evolution on or off.
+- `Boot`: toggle between opening the companion or the last book on startup.
+- `(!RE-HATCH!)`: reset the pet to a newly hatched state with current name and style.
+- `Mute`: disable audio feedback for all companion interactions.
 
 #### Firmware Update
 

@@ -15,6 +15,7 @@
 #include "display/EmbeddedSerifFont.h"
 #include "display/EmbeddedSerifFont70.h"
 #include "display/axs15231b.h"
+#include "display/ui_blank.h"
 #include "text/LatinText.h"
 #include "bookworm/BookWormCreatureDraw.h"
 #include "bookworm/BookWormCc29.h"
@@ -2805,83 +2806,125 @@ static void companionCreaturePlot(void *ctx, int x, int y, int w, int h, uint16_
   static_cast<DisplayManager *>(ctx)->plotVirtualFill(x, y, w, h, c);
 }
 
-void DisplayManager::renderCompanion(const bookworm::BookWormView &view, const String &timeText) {
-  String renderKey = "cmp|";
+void DisplayManager::renderCompanion(const bookworm::BookWormView &view, const String &timeText,
+                                     bool hasBook) {
+  String renderKey = "cmp7|";
   renderKey += view.name;
-  renderKey += "|t:";
-  renderKey += timeText;
-  renderKey += "|st:";
-  renderKey += String(view.styleId);
-  renderKey += "|e:";
-  renderKey += String(view.evolutionStage);
-  renderKey += "|h:";
-  renderKey += String(view.hungerPermille);
-  renderKey += "|b:";
-  renderKey += String(view.boredomPermille);
-  renderKey += "|m:";
-  renderKey += view.moodLine;
-  renderKey += "|f:";
-  renderKey += String(view.flashDeskAction ? 1 : 0);
-  renderKey += "|a:";
-  renderKey += String(view.hibernate ? 0 : static_cast<uint32_t>(view.companionAnimMs >> 6));
-  renderKey += "|z:";
-  renderKey += String(view.hibernate ? 1 : 0);
-  renderKey += "|bg:";
-  renderKey += batteryLabel_;
-  renderKey += "|d:";
-  renderKey += String(darkMode_ ? 1 : 0);
-  renderKey += "|n:";
-  renderKey += String(nightMode_ ? 1 : 0);
-  renderKey += "|toast:";
-  renderKey += view.toastLine;
-  renderKey += "|att:";
-  renderKey += view.attentionPing ? String(static_cast<int>((view.companionAnimMs / 500) & 1u)) : String("x");
-  renderKey += "|age:";
-  renderKey += view.ageLine;
-  renderKey += "|sk:";
-  renderKey += String(view.isSick ? 1 : 0);
-  renderKey += "|ca:";
-  renderKey += String(view.careAccent ? 1 : 0);
+  renderKey += "|t:";  renderKey += timeText;
+  renderKey += "|bk:"; renderKey += String(hasBook ? 1 : 0);
+  renderKey += "|st:"; renderKey += String(view.styleId);
+  renderKey += "|e:";  renderKey += String(view.evolutionStage);
+  renderKey += "|h:";  renderKey += String(view.hungerPermille);
+  renderKey += "|b:";  renderKey += String(view.boredomPermille);
+  renderKey += "|xp:"; renderKey += String(view.xpPermille);
+  renderKey += "|f:";  renderKey += String(view.flashDeskAction ? 1 : 0);
+  renderKey += "|a:";  renderKey += String(view.hibernate ? 0 : static_cast<uint32_t>(view.companionAnimMs >> 6));
+  renderKey += "|z:";  renderKey += String(view.hibernate ? 1 : 0);
+  renderKey += "|bg:"; renderKey += batteryLabel_;
+  renderKey += "|d:";  renderKey += String(darkMode_ ? 1 : 0);
+  renderKey += "|n:";  renderKey += String(nightMode_ ? 1 : 0);
+  renderKey += "|tst:"; renderKey += view.toastLine;
+  renderKey += "|att:"; renderKey += view.attentionPing
+      ? String(static_cast<int>((view.companionAnimMs / 500) & 1u)) : String("x");
+  renderKey += "|age:"; renderKey += view.ageLine;
+  renderKey += "|sk:";  renderKey += String(view.isSick ? 1 : 0);
+  renderKey += "|ca:";  renderKey += String(view.careAccent ? 1 : 0);
 
-  if (!initialized_ || renderKey == lastRenderKey_) {
-    return;
-  }
+  if (!initialized_ || renderKey == lastRenderKey_) return;
   lastRenderKey_ = renderKey;
 
   const int scale = 1;
-  const int virtualWidth = kDisplayWidth;
-  const int virtualHeight = kDisplayHeight;
-  clearVirtualBuffer(virtualWidth, virtualHeight);
+  const int virtualWidth  = kDisplayWidth;   // 640
+  const int virtualHeight = kDisplayHeight;  // 172
 
-  const String petLabel = "Lv" + String(view.evolutionStage);
-  int headerX = 8;
-  const int petBaselineY = 4;
-  drawTinyTextAt(petLabel, headerX, petBaselineY, dimColor(), kTinyScale);
-  headerX += measureTinyTextWidth(petLabel, kTinyScale);
-  if (!view.ageLine.isEmpty()) {
-    headerX += 6;
-    drawTinyTextAt(view.ageLine, headerX, petBaselineY, dimColor(), kTinyScale);
-    headerX += measureTinyTextWidth(view.ageLine, kTinyScale);
+  // ── Layout constants ──────────────────────────────────────────────────────
+  constexpr int kCreatureW = 240;             // left creature zone width
+  constexpr int kDivX      = kCreatureW;      // 240 — vertical divider
+  constexpr int kInfoX     = kCreatureW + 2;  // 242 — right panel start
+  const     int kInfoW     = virtualWidth - kInfoX;   // 398
+  constexpr int kPadX      = 8;
+
+  constexpr int kNameScale = 3;
+  const     int kNameH     = kTinyGlyphHeight * kNameScale;  // 21
+  constexpr int kSmScale   = 2;
+  const     int kSmH       = kTinyGlyphHeight * kSmScale;    // 14
+
+  constexpr int kBtnH   = 44;
+  const     int kBtnY   = virtualHeight - kBtnH;            // 128
+  const     int kBtnW   = kInfoW / 3;                       // 132
+
+  // ── Blit background image (UI template) ────────────────────────────────────
+  // Copy ui_blank_rgb565 (RGB565 LE format) into virtual buffer, byte-swapped like panelColor()
+  for (size_t i = 0; i < UI_BLANK_SIZE / 2; ++i) {
+    // ui_blank_rgb565 is stored as little-endian bytes; reconstruct uint16_t
+    uint16_t rgb565 = ui_blank_rgb565[i * 2] | (static_cast<uint16_t>(ui_blank_rgb565[i * 2 + 1]) << 8);
+    // Apply byte-swap like panelColor() does for all other rendering
+    virtualFrame_[i] = static_cast<uint16_t>((rgb565 << 8) | (rgb565 >> 8));
   }
-  if (view.careAccent) {
-    headerX += 4;
-    drawTinyTextAt("+", headerX, petBaselineY, 0xFFE0, kTinyScale);
+
+  // ── Dynamic elements drawn on top of background ─────────────────────────────
+
+  // Clock badge text (x=479–562, y=12–32)
+  constexpr int kClkBoxX = 479;
+  constexpr int kClkBoxY = 12;
+  constexpr int kClkBoxW = 83;   // 562 - 479
+  constexpr int kClkBoxH = 20;   // 32 - 12
+  const int clkTW = measureTinyTextWidth(timeText, kSmScale);
+  const int clkX = kClkBoxX + (kClkBoxW - clkTW) / 2;  // centered in box
+  const int clkY = kClkBoxY + (kClkBoxH - kSmH) / 2;
+  drawTinyTextAt(timeText, clkX, clkY,
+                 hasBook ? focusColor() : wordColor(), kSmScale);
+
+  // ── Name (x=248–410, y=10–24) — deep red ─────────────────────────────────
+  constexpr int nameBoxX = 248;
+  constexpr int nameBoxY = 10;
+  constexpr uint16_t nameColor = 0xC000;  // deep red (R:192, G:0, B:0)
+  const int nameMaxW = 410 - nameBoxX;
+  drawTinyTextAt(fitTinyText(view.name, nameMaxW, kNameScale),
+                 nameBoxX, nameBoxY, nameColor, kNameScale);
+
+  // ── Level (x=248–410, y=40–60) ────────────────────────────────────────────
+  constexpr int levelBoxX = 248;
+  constexpr int levelBoxY = 40;
+  {
+    String lvStr = "LVL " + String(static_cast<int>(view.evolutionStage));
+    if (!view.ageLine.isEmpty()) lvStr += "  " + view.ageLine;
+    drawTinyTextAt(lvStr, levelBoxX, levelBoxY, dimColor(), kSmScale);
+    if (view.careAccent) {
+      drawTinyTextAt("+", levelBoxX + measureTinyTextWidth(lvStr, kSmScale) + 4, levelBoxY, 0xFFE0, kSmScale);
+    }
   }
 
-  const String nameFit = fitTinyText(view.name, virtualWidth / 2, kTinyScale);
-  drawTinyTextAt(nameFit, 8, 4 + kTinyGlyphHeight * kTinyScale + 2, wordColor(), kTinyScale);
+  // ── Meter bars (labels are baked in image; only draw fills) ──────────────────
+  auto drawMeterFill = [&](int barX, int barY, int barW, int barH, int permille, uint16_t fillCol) {
+    const int fillW = std::max(2, (barW * permille) / 1000);
+    fillVirtualRect(barX, barY, fillW, barH, fillCol);
+  };
 
-  const int timeW = measureTinyTextWidth(timeText, kTinyScale);
-  drawTinyTextAt(timeText, std::max(8, virtualWidth - timeW - 8), 4, wordColor(), kTinyScale);
-  if (view.attentionPing && ((view.companionAnimMs / 500) & 1u) != 0) {
-    drawTinyTextAt("!", std::max(8, virtualWidth - timeW - 22), 4, 0xF800, kTinyScale);
-  }
+  // HGR bar fill (x=477–617, y=51–57)
+  drawMeterFill(477, 51, 140, 6, static_cast<int>(view.hungerPermille), 0xF800);
 
-  const int cx = virtualWidth / 2;
-  const int cy = 72;
+  // TIR bar fill (x=477–617, y=75–81)
+  drawMeterFill(477, 75, 140, 6, static_cast<int>(view.boredomPermille), 0x07FF);
+
+  // XP bar fill with color per evolution stage (x=477–617, y=98–104)
+  static const uint16_t kXpStageColor[4] = {
+    0xC618,  // stage 0 — grey  (hatchling)
+    0x07FF,  // stage 1 — cyan
+    0xFFE0,  // stage 2 — gold
+    0xF81F,  // stage 3 — magenta (max)
+  };
+  const uint16_t xpColor = kXpStageColor[std::min(3, static_cast<int>(view.evolutionStage))];
+  drawMeterFill(477, 98, 140, 6, static_cast<int>(view.xpPermille), xpColor);
+
+  // ── Creature (left zone, centered) ────────────────────────────────────────
+  const int cx = kCreatureW / 2;                   // 120
+  const int cy = virtualHeight / 2;               // 86
+  const int glyphH = kTinyGlyphHeight * kTinyScale;
 
   if (view.hibernate) {
-    drawTinyTextCentered("Zzz", cy, dimColor(), kTinyScale);
+    const int zzW = measureTinyTextWidth("Zzz", kTinyScale);
+    drawTinyTextAt("Zzz", cx - zzW / 2, cy - glyphH / 2, dimColor(), kTinyScale);
   } else {
     bookworm::CreatureStyleColors pal;
     bookworm::fillCreatureStyleColorsCc29(&pal, static_cast<uint8_t>(view.styleId));
@@ -2891,29 +2934,22 @@ void DisplayManager::renderCompanion(const bookworm::BookWormView &view, const S
                                view.isSick);
   }
 
+  // ── Toast (below portrait zone, with margin) ─────────────────────────────
   if (!view.toastLine.isEmpty()) {
-    drawTinyTextCentered(view.toastLine, 104, focusColor(), kTinyScale);
+    constexpr int portraitBottom = 162;
+    constexpr int toastMarginBottom = 12;  // Position well above bottom edge
+    const int toastMaxW = kCreatureW - 8;
+    const int toastW    = measureTinyTextWidth(view.toastLine, kTinyScale);
+    const int toastX    = std::max(4, cx - std::min(toastW, toastMaxW) / 2);
+    const int toastY    = portraitBottom - toastMarginBottom;
+    drawTinyTextAt(fitTinyText(view.toastLine, toastMaxW, kTinyScale),
+                   toastX, toastY, focusColor(), kTinyScale);
   }
 
-  const int meterY = 118;
-  const int maxBar = 220;
-  drawTinyTextAt("H", 10, meterY - 14, dimColor(), kTinyScale);
-  const int hFill = std::max(2, (maxBar * static_cast<int>(view.hungerPermille)) / 1000);
-  fillVirtualRect(28, meterY - 12, maxBar, 8, dimColor());
-  fillVirtualRect(29, meterY - 11, hFill, 6, 0xF800);
-  drawTinyTextAt("B", 10, meterY + 4, dimColor(), kTinyScale);
-  const int bFill = std::max(2, (maxBar * static_cast<int>(view.boredomPermille)) / 1000);
-  fillVirtualRect(28, meterY + 6, maxBar, 8, dimColor());
-  fillVirtualRect(29, meterY + 7, bFill, 6, 0x07FF);
-
-  if (!view.moodLine.isEmpty()) {
-    drawTinyTextCentered(view.moodLine, std::min(virtualHeight - 10, meterY + 30), dimColor(),
-                         kTinyScale);
+  // ── Attention ping ────────────────────────────────────────────────────────
+  if (view.attentionPing && ((view.companionAnimMs / 500) & 1u) != 0) {
+    drawTinyTextAt("!", virtualWidth - 10, 2, 0xF800, kSmScale);
   }
-
-  drawTinyTextAt("Feed", 48, virtualHeight - 16, dimColor(), kTinyScale);
-  drawTinyTextAt("Play", virtualWidth / 2 - 24, virtualHeight - 16, dimColor(), kTinyScale);
-  drawTinyTextAt("Pet", virtualWidth - 64, virtualHeight - 16, dimColor(), kTinyScale);
 
   drawBatteryBadge();
   flushScaledFrame(scale, virtualWidth, virtualHeight);
