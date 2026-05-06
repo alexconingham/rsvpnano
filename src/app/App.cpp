@@ -142,9 +142,10 @@ constexpr size_t kBookwormSettingsEvolutionIndex = 3;
 constexpr size_t kBookwormSettingsBootIndex = 4;
 constexpr size_t kBookwormSettingsRehatchIndex = 5;
 constexpr size_t kBookwormSettingsMuteIndex = 6;
+constexpr size_t kBookwormSettingsHelpIndex = 7;
 #ifdef RSVP_BOOKWORM_DEV
-constexpr size_t kBookwormSettingsDevRegenIndex = 7;
-constexpr size_t kBookwormSettingsDevEvoIndex = 8;
+constexpr size_t kBookwormSettingsDevRegenIndex = 8;
+constexpr size_t kBookwormSettingsDevEvoIndex = 9;
 #endif
 constexpr size_t kSettingsDisplayReadingModeIndex = 1;
 constexpr size_t kSettingsDisplayHandednessIndex = 2;
@@ -159,6 +160,7 @@ constexpr size_t kWifiSettingsNetworkIndex = 1;
 constexpr size_t kWifiSettingsChooseIndex = 2;
 constexpr size_t kWifiSettingsAutoUpdateIndex = 3;
 constexpr size_t kWifiSettingsForgetIndex = 4;
+constexpr size_t kWifiSettingsSetTimeIndex = 5;
 
 constexpr size_t kBookPickerBackIndex = 0;
 constexpr size_t kChapterPickerBackIndex = 0;
@@ -200,6 +202,7 @@ constexpr const char *kPrefBookwormStates = "bw_state";
 constexpr const char *kPrefBookwormEvolution = "bw_evo";
 constexpr const char *kPrefBookwormNightMode = "bw_night";
 constexpr const char *kPrefAudioMuted = "audio_mute";
+constexpr const char *kPrefManualTimeUtc = "man_time_utc";
 constexpr size_t kReaderFontSizeCount = 3;
 constexpr size_t kPhantomBeforeCharTargets[] = {64, 96, 144};
 constexpr size_t kPhantomAfterCharTargets[] = {96, 144, 208};
@@ -443,6 +446,16 @@ void App::begin() {
   powerButtonLongPressHandled_ = false;
   storage_.setStatusCallback(&App::handleStorageStatus, this);
   preferences_.begin(kPrefsNamespace, false);
+
+  // Restore manually-set time before anything that reads the clock.
+  // SNTP will override this when Wi-Fi connects; NVS time is the offline fallback.
+  if (preferences_.isKey(kPrefManualTimeUtc)) {
+    const uint32_t savedUtc = preferences_.getUInt(kPrefManualTimeUtc, 0);
+    if (savedUtc > 1700000000) {
+      TimeService::setManualTime(savedUtc);
+    }
+  }
+
   brightnessLevelIndex_ = preferences_.getUChar(kPrefBrightness, brightnessLevelIndex_);
   if (brightnessLevelIndex_ >= kBrightnessLevelCount) {
     brightnessLevelIndex_ = kBrightnessLevelCount - 1;
@@ -756,16 +769,21 @@ void App::updateState(uint32_t nowMs) {
 
   if (state_ == AppState::EvolveFlash) {
     if (nowMs >= evolveFlashUntilMs_) {
-      // Animation finished — apply stage advance, persist, reveal.
+      // Animation finished — apply stage advance, mutate name, persist, reveal.
       if (bookwormState_.evolutionStage < 3) {
         bookwormState_.evolutionStage =
             static_cast<uint8_t>(bookwormState_.evolutionStage + 1);
+        bookworm::appendEvolutionSuffix(bookwormState_);
       }
       maybePersistBookworm(nowMs, true);
       setState(AppState::EvolveReveal, nowMs);
     } else {
-      // Re-render so flash phase animates.
-      display_.renderEvolveFlash(nowMs - evolveFlashStartMs_);
+      // Re-render at flash-phase boundaries (~150ms cycle).
+      const uint32_t phaseMs = nowMs - evolveFlashStartMs_;
+      if (nowMs - lastHatchEggRenderMs_ >= 60) {
+        lastHatchEggRenderMs_ = nowMs;
+        display_.renderEvolveFlash(phaseMs);
+      }
     }
     return;
   }
@@ -977,7 +995,8 @@ void App::applyDisplayPreferences(uint32_t nowMs, bool rerender) {
   if (state_ == AppState::Menu) {
     if (menuScreen_ == MenuScreen::SettingsHome || menuScreen_ == MenuScreen::SettingsDisplay ||
         menuScreen_ == MenuScreen::SettingsPacing || menuScreen_ == MenuScreen::SettingsBookworm ||
-        menuScreen_ == MenuScreen::SettingsHelp || menuScreen_ == MenuScreen::WifiSettings) {
+        menuScreen_ == MenuScreen::SettingsHelp || menuScreen_ == MenuScreen::WifiSettings ||
+        menuScreen_ == MenuScreen::BookwormHelp) {
       rebuildSettingsMenuItems();
       renderSettings();
       return;
@@ -1012,7 +1031,8 @@ void App::applyHandednessSettings(uint32_t nowMs, bool rerender) {
   if (state_ == AppState::Menu &&
       (menuScreen_ == MenuScreen::SettingsHome || menuScreen_ == MenuScreen::SettingsDisplay ||
        menuScreen_ == MenuScreen::SettingsPacing || menuScreen_ == MenuScreen::SettingsBookworm ||
-        menuScreen_ == MenuScreen::SettingsHelp || menuScreen_ == MenuScreen::WifiSettings)) {
+       menuScreen_ == MenuScreen::SettingsHelp || menuScreen_ == MenuScreen::WifiSettings ||
+       menuScreen_ == MenuScreen::BookwormHelp)) {
     rebuildSettingsMenuItems();
   }
 
@@ -1085,7 +1105,8 @@ void App::cycleUiLanguage(uint32_t nowMs) {
   if (state_ == AppState::Menu) {
     if (menuScreen_ == MenuScreen::SettingsHome || menuScreen_ == MenuScreen::SettingsDisplay ||
         menuScreen_ == MenuScreen::SettingsPacing || menuScreen_ == MenuScreen::SettingsBookworm ||
-        menuScreen_ == MenuScreen::SettingsHelp || menuScreen_ == MenuScreen::WifiSettings) {
+        menuScreen_ == MenuScreen::SettingsHelp || menuScreen_ == MenuScreen::WifiSettings ||
+        menuScreen_ == MenuScreen::BookwormHelp) {
       rebuildSettingsMenuItems();
       renderSettings();
       return;
@@ -1635,6 +1656,17 @@ void App::applyMenuTouchGesture(const TouchEvent &event, uint32_t nowMs) {
   const int absDeltaX = abs(deltaX);
   const int absDeltaY = abs(deltaY);
 
+  if (menuScreen_ == MenuScreen::BookwormHelp) {
+    // Any tap dismisses back to Bookworm settings.
+    if (absDeltaX <= static_cast<int>(kTapSlopPx) && absDeltaY <= static_cast<int>(kTapSlopPx)) {
+      settingsSelectedIndex_ = kBookwormSettingsHelpIndex;
+      menuScreen_ = MenuScreen::SettingsBookworm;
+      rebuildSettingsMenuItems();
+      renderSettings();
+    }
+    return;
+  }
+
   if (menuScreen_ == MenuScreen::TextEntry) {
     if (absDeltaX <= static_cast<int>(kTapSlopPx) && absDeltaY <= static_cast<int>(kTapSlopPx)) {
       handleTextEntryTap(event.x, event.y, nowMs);
@@ -2008,6 +2040,12 @@ void App::selectWifiSettingsItem(uint32_t nowMs) {
       rebuildSettingsMenuItems();
       renderSettings();
       return;
+    case kWifiSettingsSetTimeIndex: {
+      const String current = TimeService::hasValidLocalTime() ? TimeService::formatHHMM() : "";
+      openTextEntry(TextEntryPurpose::ManualTime, "Set time", "Enter HH:MM (24h)", "",
+                    current, "", false, 5, MenuScreen::WifiSettings);
+      return;
+    }
     default:
       return;
   }
@@ -2355,6 +2393,59 @@ void App::commitTextEntry(uint32_t nowMs) {
       openWifiSettings();
       return;
     }
+    case TextEntryPurpose::ManualTime: {
+      // Parse "HH:MM" (24h). Reuse today's date if time is valid, else 2025-01-01.
+      const String &v = textEntrySession_.value;
+      int hh = -1, mm = -1;
+      if (v.length() >= 4) {
+        const int colonPos = v.indexOf(':');
+        if (colonPos > 0) {
+          hh = v.substring(0, colonPos).toInt();
+          mm = v.substring(colonPos + 1).toInt();
+        }
+      }
+      if (hh < 0 || hh > 23 || mm < 0 || mm > 59) {
+        display_.renderStatus("Set time", "Use HH:MM (e.g. 14:30)", "");
+        delay(1200);
+        renderTextEntry();
+        return;
+      }
+      struct tm ti;
+      time_t base = time(nullptr);
+      if (base > 1700000000) {
+        localtime_r(&base, &ti);
+      } else {
+        // No valid time — anchor to 2025-01-01
+        memset(&ti, 0, sizeof(ti));
+        ti.tm_year = 125;  // years since 1900
+        ti.tm_mon  = 0;
+        ti.tm_mday = 1;
+      }
+      ti.tm_hour = hh;
+      ti.tm_min  = mm;
+      ti.tm_sec  = 0;
+      ti.tm_isdst = -1;
+      const time_t newUtc = mktime(&ti);
+      if (newUtc > 0) {
+        TimeService::setManualTime(static_cast<uint32_t>(newUtc));
+        preferences_.putUInt(kPrefManualTimeUtc, static_cast<uint32_t>(newUtc));
+        // Refresh hatch UTC if it was missing and we now have a valid clock.
+        if (bookwormState_.hatched && bookwormState_.hatchedAtUtc == 0) {
+          bookwormState_.hatchedAtUtc = static_cast<uint32_t>(newUtc);
+          maybePersistBookworm(nowMs, true);
+        }
+      }
+      textEntrySession_ = TextEntrySession();
+      textEntryButtons_.clear();
+      settingsSelectedIndex_ = kWifiSettingsSetTimeIndex;
+      menuScreen_ = MenuScreen::WifiSettings;
+      rebuildSettingsMenuItems();
+      display_.renderStatus("Time set", String(hh < 10 ? "0" : "") + hh + ":" +
+                            (mm < 10 ? "0" : "") + mm, "Saved");
+      delay(900);
+      renderSettings();
+      return;
+    }
     case TextEntryPurpose::None:
     default:
       menuScreen_ = textEntrySession_.returnScreen;
@@ -2497,6 +2588,7 @@ void App::rebuildSettingsMenuItems() {
     settingsMenuItems_.push_back("(!RE-HATCH!)");
     settingsMenuItems_.push_back("Mute: " +
                                  uiText(audioMuted_ ? UiText::On : UiText::Off));
+    settingsMenuItems_.push_back("Bookworm help");
 #ifdef RSVP_BOOKWORM_DEV
     settingsMenuItems_.push_back("Dev: Regenerate pet");
     settingsMenuItems_.push_back("Dev: +Evolution");
@@ -2524,6 +2616,19 @@ void App::rebuildSettingsMenuItems() {
     settingsMenuItems_.push_back("Choose network");
     settingsMenuItems_.push_back("Auto OTA: " + String(otaAutoCheckEnabled() ? "On" : "Off"));
     settingsMenuItems_.push_back("Forget network");
+    {
+      String timeLabel = "Set time: ";
+      timeLabel += TimeService::hasValidLocalTime() ? TimeService::formatHHMM() : "--:--";
+      settingsMenuItems_.push_back(timeLabel);
+    }
+  } else if (menuScreen_ == MenuScreen::BookwormHelp) {
+    settingsMenuItems_.push_back("< Back");
+    settingsMenuItems_.push_back("HGR: hunger  TIR: boredom");
+    settingsMenuItems_.push_back("FEED: fill hunger  PET: both");
+    settingsMenuItems_.push_back("PLAY: fill boredom  BOOP: heal");
+    settingsMenuItems_.push_back("Reading fills all needs + XP");
+    settingsMenuItems_.push_back("XP full: tap creature to evolve");
+    settingsMenuItems_.push_back("Clock: tap to return to book");
   }
 
   if (settingsSelectedIndex_ >= settingsMenuItems_.size()) {
@@ -2574,11 +2679,16 @@ void App::maybeStartWifiForClock() {
     TimeService::requestSntpOnce();
     return;
   }
+  // Start SNTP only once we actually have an IP — avoids the race where
+  // configTime() fires before WiFi connects and the SNTP daemon gives up.
+  WiFi.onEvent([](WiFiEvent_t, WiFiEventInfo_t) {
+    Serial.println("[clock] WiFi got IP — starting SNTP");
+    TimeService::requestSntpOnce();
+  }, ARDUINO_EVENT_WIFI_STA_GOT_IP);
   WiFi.persistent(false);
   WiFi.setAutoReconnect(true);
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid.c_str(), config.wifiPassword.c_str());
-  TimeService::requestSntpOnce();
   Serial.printf("[clock] WiFi begin SSID='%s'\n", ssid.c_str());
 }
 
@@ -3295,7 +3405,8 @@ int App::findBookIndexByPath(const String &path) const {
 void App::renderMenu() {
   if (menuScreen_ == MenuScreen::SettingsHome || menuScreen_ == MenuScreen::SettingsDisplay ||
       menuScreen_ == MenuScreen::SettingsPacing || menuScreen_ == MenuScreen::SettingsBookworm ||
-        menuScreen_ == MenuScreen::SettingsHelp || menuScreen_ == MenuScreen::WifiSettings) {
+      menuScreen_ == MenuScreen::SettingsHelp || menuScreen_ == MenuScreen::WifiSettings ||
+      menuScreen_ == MenuScreen::BookwormHelp) {
     renderSettings();
   } else if (menuScreen_ == MenuScreen::WifiNetworks) {
     renderWifiNetworks();
@@ -3334,6 +3445,12 @@ void App::renderSettings() {
     rebuildSettingsMenuItems();
   }
   display_.renderMenu(settingsMenuItems_, settingsSelectedIndex_);
+}
+
+void App::renderBookwormHelp(uint32_t nowMs) {
+  (void)nowMs;
+  rebuildSettingsMenuItems();
+  renderSettings();
 }
 
 void App::renderTypographyTuning() {
@@ -4218,6 +4335,10 @@ void App::selectBookwormSettingsItem(uint32_t nowMs) {
     case kBookwormSettingsRehatchIndex:
       // Route through the egg flow for consistency with first-time hatch.
       enterHatchEgg(nowMs);
+      return;
+    case kBookwormSettingsHelpIndex:
+      menuScreen_ = MenuScreen::BookwormHelp;
+      renderBookwormHelp(nowMs);
       return;
     case kBookwormSettingsMuteIndex:
       audioMuted_ = !audioMuted_;

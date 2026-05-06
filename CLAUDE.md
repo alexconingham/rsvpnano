@@ -1,6 +1,6 @@
 # CLAUDE.md — Handover for Claude Code / agent work
 
-This file orients future sessions on **RSVP Nano + Book Worm** firmware for the **Waveshare ESP32-S3-Touch-LCD-3.49** (172×640 QSPI + AXS15231B touch). Treat this as the project-specific source of truth alongside the code; **`README.md` may lag** (e.g. hardware button copy).
+This file orients future sessions on **RSVP Bookworm** firmware for the **Waveshare ESP32-S3-Touch-LCD-3.49** (172×640 QSPI + AXS15231B touch). Treat this as the project-specific source of truth alongside the code; **`README.md` may lag** (e.g. hardware button copy).
 
 ## What this repo is
 

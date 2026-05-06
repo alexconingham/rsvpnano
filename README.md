@@ -24,15 +24,16 @@ This tree extends upstream RSVP Nano with a **Book Worm** companion screen:
 - After boot the device shows the companion screen — a procedural creature, hunger/tiredness meters, XP bar, and a clock — instead of opening the last book immediately. Use **Resume** in the menu to continue your book. Toggle boot target in **Settings → Book Worm**.
 - **Book Worm** in the main menu returns to the companion: saves progress and unloads the book from RAM.
 - **Companion layout:** large creature on the left; right panel shows name, level, age, three meters (HGR hunger, TIR tiredness, XP), and three action buttons.
-- **PLAY / FEED / PET** (bottom-right buttons) reduce tiredness or hunger and start a 60-second XP boost — reading while boosted heals needs at 2× rate. Tap the creature to **boop** it. Each action plays distinctive polyphonic chime sounds.
+- **PLAY / FEED / PET** (bottom-right buttons) reduce tiredness or hunger and start a 60-second XP boost — reading while boosted heals needs at 2× rate. Each action plays distinctive polyphonic chime sounds. Tap the creature to **boop** it.
 - **Sound:** Polyphonic audio feedback for all companion interactions — ascending chimes for play, warm tones for feed, playful bounces for pet, soft taps for boop, sad descending tones for illness, and celebratory ascending tones for evolution.
 - **XP bar** shows progress within the current evolution stage (grey → cyan → gold → magenta across four stages: 0 / 5k / 25k / 100k total words). The gold **+** next to the level lights up while a boost is active.
-- **Clock** shows local time via SNTP after Wi‑Fi connects (configure credentials in `/config/ota.conf` on the SD card or via **Settings → Wi‑Fi**). Tap the clock badge to jump back to your book. Until SNTP syncs the clock shows `--:--`.
+- **Hatching:** on first boot (or after a re-hatch) the screen shows a wiggling egg. Tap it to hatch and reveal your creature with its procedurally generated name. Tap again to enter the companion screen.
+- **Evolution:** when the XP bar is full, an **EVOLVE!** badge flashes in the companion. Tap the creature to trigger evolution — the screen flashes, the creature changes appearance, and its name gains a suffix (e.g. drunmo → drunmog → drunmogy). Tap to continue.
+- **Clock** shows local time via SNTP after Wi‑Fi connects (configure credentials in **Settings → Wi‑Fi**). Tap the clock badge to jump back to your book. Until SNTP syncs the clock shows `--:--`.
 - **Night Mode** inverts UI colors on the companion screen — toggle it by holding the `BOOT` button while viewing the companion.
 - Pet data is stored in NVS namespace `bworm` (separate from reading preferences).
-- **Settings → Book Worm:** Hibernate, Needs sim on/off, Evolution on/off, boot target, and pet reset.
-- For **OTA from your own GitHub fork**, set `github_owner` and `github_repo` in `/config/ota.conf` on the SD card (see `docs/ota.conf.example`) or adjust the defaults in `src/update/OtaUpdater.h` before building. The helper `tools/fetch_release_firmware.py` accepts `--repo owner/name` for pulling release binaries into `web/firmware/`.
-- Companion **creature** is **procedural** (mirrored random fill in an ellipse, inspired by [Dave Bollinger–style pixel spaceships](https://web.archive.org/web/20080228054410/http://www.davebollinger.com/works/pixelspaceships/) and [pixel-sprite-generator](https://github.com/zfedoran/pixel-sprite-generator)): deterministic from pet name, palette, and evolution stage. Optional dev firmware: `pio run -e waveshare_esp32s3_usb_msc_bwdev` enables **Dev: Regenerate pet** and **Dev: +Evolution** for testing.
+- **Settings → Book Worm:** Hibernate, Needs sim on/off, Evolution on/off, boot target, pet reset, mute, and Bookworm help.
+- Companion **creature** is **procedural** (mirrored random fill in an ellipse, inspired by [Dave Bollinger–style pixel spaceships](https://web.archive.org/web/20080228054410/http://www.davebollinger.com/works/pixelspaceships/) and [pixel-sprite-generator](https://github.com/zfedoran/pixel-sprite-generator)): deterministic from pet name, palette, and evolution stage.
 
 *(Optional) A standalone reader-facing manual to print or turn into a PDF lives in [`docs/COMPANION_GUIDE.md`](docs/COMPANION_GUIDE.md) — it is not shown inside the app.*
 
@@ -40,25 +41,13 @@ This tree extends upstream RSVP Nano with a **Book Worm** companion screen:
 
 ### Flash From The Browser
 
-The easiest way to install the firmware is the web flasher:
+The upstream RSVP Nano web flasher installs the base firmware without Book Worm:
 
 <https://ionutdecebal.github.io/rsvpnano/>
 
+To install this fork (which includes Book Worm), build from source or use the OTA path from this repository's GitHub Releases once they are published (see [OTA Updates](#ota-updates)).
+
 Use Chrome or Edge on desktop, connect the device over USB, and follow the installer prompts.
-The hosted flasher installs the latest published GitHub Release rather than unreleased `main`
-commits.
-
-The browser flasher uses ESP Web Tools and Web Serial, so it must be opened over HTTPS or localhost.
-It also includes a browser-side Library Workspace for importing supported books, converting them
-into `.rsvp`, downloading a `.zip` of the results, cleaning interrupted sidecar files, and syncing
-the converted outputs back into the SD card's `/books` folder.
-
-On the device, you can switch the menu language in `Settings -> Display -> Language`.
-You can also switch between anchored RSVP and the page scroller in `Settings -> Display ->
-Reading mode`.
-While paused in RSVP mode, swipe left or right to open the larger scrub preview, hold and move
-your finger vertically to browse smoothly through the text, and tap to return to the anchored
-word view.
 
 The browser workflow currently accepts:
 
@@ -117,7 +106,7 @@ The firmware can optionally check GitHub Releases over Wi-Fi and install a newer
 erasing your reader settings or saved reading progress. Settings and progress are stored in ESP32
 `Preferences`, so a normal OTA update keeps them intact.
 
-To enable OTA on the device:
+OTA pulls from **this fork's** GitHub Releases (`alexconingham/RSVPbookworm`). To enable it:
 
 1. Open `Settings -> Wi-Fi`.
 2. Tap `Choose network`.
@@ -132,11 +121,23 @@ the device.
 The selected Wi-Fi network and password are stored in ESP32 `Preferences`, so normal OTA updates
 keep them alongside your reader settings and saved book progress.
 
-[`docs/ota.conf.example`](docs/ota.conf.example) is still supported as an optional advanced
-override or fallback. You can copy it to the SD card as `/config/ota.conf` if you want to
-pre-seed Wi-Fi credentials or change the default repo/asset settings.
+To publish a release from this fork:
 
-Optional keys let you override the default repo or asset name:
+1. Build from a clean tagged commit (`git tag v1.x.x && git push origin v1.x.x`).
+2. Run `python3 tools/export_web_firmware.py`.
+3. Create a GitHub Release in `alexconingham/RSVPbookworm`.
+4. Upload both `web/firmware/rsvp-nano.bin` and `web/firmware/rsvp-nano-ota.bin` to that release.
+
+The device checks `releases/latest`, compares the release tag to its built-in firmware version,
+and only downloads the OTA asset when the release tag is newer.
+
+**Pulling upstream RSVP Nano changes:** OTA delivers a pre-built binary — it cannot merge source
+code automatically. To incorporate upstream improvements, run `git fetch upstream && git merge
+upstream/main` locally, resolve any conflicts, build, and publish a new release. The `upstream`
+remote already points to `ionutdecebal/rsvpnano`.
+
+[`docs/ota.conf.example`](docs/ota.conf.example) is supported as an optional override. Copy it to
+the SD card as `/config/ota.conf` to pre-seed Wi-Fi credentials or change the default repo/asset:
 
 - `github_owner`
 - `github_repo`
@@ -248,7 +249,8 @@ Main Menu
 |  |  |- Network
 |  |  |- Choose network
 |  |  |- Auto OTA
-|  |  `- Forget network
+|  |  |- Forget network
+|  |  `- Set time: HH:MM
 |  |- Book Worm
 |  |  |- Back
 |  |  |- Hibernate: On/Off
@@ -256,7 +258,8 @@ Main Menu
 |  |  |- Evolution: On/Off
 |  |  |- Boot: companion / book
 |  |  |- (!RE-HATCH!)
-|  |  `- Mute: On/Off
+|  |  |- Mute: On/Off
+|  |  `- Bookworm help
 |  |- Firmware update
 |  `- Help             (scrollable quick-reference)
 |- USB transfer (default USB build)
@@ -298,6 +301,7 @@ Main Menu
 - `Choose network`: scan nearby SSIDs and open the on-device keyboard for secure networks.
 - `Auto OTA`: check `releases/latest` during boot when Wi-Fi credentials are available.
 - `Forget network`: clear the stored Wi-Fi credentials from `Preferences`.
+- `Set time: HH:MM`: manually set the current time if Wi-Fi SNTP has not synced yet. The value is stored in NVS and restored on next boot.
 
 #### Book Worm
 
@@ -305,8 +309,9 @@ Main Menu
 - `Needs sim`: turn the hunger and tiredness simulation on or off.
 - `Evolution`: turn pet evolution on or off.
 - `Boot`: toggle between opening the companion or the last book on startup.
-- `(!RE-HATCH!)`: reset the pet to a newly hatched state with current name and style.
+- `(!RE-HATCH!)`: reset the pet and return to the egg screen for a fresh hatch.
 - `Mute`: disable audio feedback for all companion interactions.
+- `Bookworm help`: quick in-app care reference.
 
 #### Firmware Update
 
@@ -336,6 +341,12 @@ The default environment is `waveshare_esp32s3_usb_msc`, which includes the reade
 
 Serial monitor runs at `115200`.
 
+To build with dev-only Bookworm menu items (Regenerate pet, +Evolution):
+
+```sh
+pio run -e waveshare_esp32s3_usb_msc_bwdev
+```
+
 To export the browser-flasher image and the OTA binary:
 
 ```sh
@@ -357,14 +368,8 @@ For OTA releases:
 1. Build from a clean commit or tag. Tagged builds are recommended so the firmware version matches
    the release tag.
 2. Run `python3 tools/export_web_firmware.py`.
-3. Create a GitHub Release in `ionutdecebal/rsvpnano`.
+3. Create a GitHub Release in `alexconingham/RSVPbookworm`.
 4. Upload both `web/firmware/rsvp-nano.bin` and `web/firmware/rsvp-nano-ota.bin` to that release.
-
-The device checks `releases/latest`, compares the release tag to its built-in firmware version,
-and only downloads the OTA asset when the release tag is newer.
-
-GitHub Pages also pulls the latest published release assets for the hosted web flasher, so browser
-installs and OTA installs stay on the same official release line.
 
 ## Hardware
 
