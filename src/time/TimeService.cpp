@@ -10,7 +10,8 @@ void TimeService::requestSntpOnce() {
     return;
   }
   sntpStarted_ = true;
-  setenv("TZ", "NZST-12NZDT,M9.5.0,M4.1.0/3", 1);
+  // Default UTC — set your local timezone via /config/ota.conf or use Settings -> Wi-Fi -> Set time.
+  setenv("TZ", "UTC0", 1);
   tzset();
   // Arduino-ESP32 2.0.x exposes configTime() (LWIP SNTP); avoids esp_sntp_* API differences.
   configTime(0, 0, "pool.ntp.org", "time.google.com");
@@ -27,6 +28,13 @@ uint32_t TimeService::utcUnixSeconds() {
     return 0;
   }
   return static_cast<uint32_t>(now);
+}
+
+void TimeService::setManualTime(uint32_t utcSeconds) {
+  struct timeval tv;
+  tv.tv_sec = static_cast<time_t>(utcSeconds);
+  tv.tv_usec = 0;
+  settimeofday(&tv, nullptr);
 }
 
 String TimeService::formatHHMM() {
