@@ -71,6 +71,7 @@ class App {
     BookPicker,
     ChapterPicker,
     RestartConfirm,
+    BookwormHelp,
   };
 
   enum class FooterMetricMode : uint8_t {
@@ -82,6 +83,7 @@ class App {
   enum class TextEntryPurpose : uint8_t {
     None,
     WifiPassword,
+    ManualTime,
   };
 
   enum class KeyboardMode : uint8_t {
@@ -142,6 +144,7 @@ class App {
   void openSettingsFromPowerButton(uint32_t nowMs);
   void pauseAndGoToCompanion(uint32_t nowMs);
   void maybeStartWifiForClock();
+  void maybeSyncSntp(uint32_t nowMs);
   void cycleBrightness();
   void cycleThemeMode(uint32_t nowMs);
   void cycleUiLanguage(uint32_t nowMs);
@@ -241,6 +244,7 @@ class App {
   void renderMenu();
   void renderMainMenu();
   void renderSettings();
+  void renderBookwormHelp(uint32_t nowMs);
   void renderTypographyTuning();
   void renderBookPicker();
   void renderChapterPicker();
@@ -312,6 +316,7 @@ class App {
 
   uint32_t bootStartedMs_ = 0;
   uint32_t lastStateLogMs_ = 0;
+  uint32_t lastSntpPollMs_ = 0;
   uint32_t wpmFeedbackUntilMs_ = 0;
   uint32_t lastProgressSaveMs_ = 0;
   uint32_t lastBatterySampleMs_ = 0;

@@ -600,6 +600,7 @@ void App::update(uint32_t nowMs) {
   maybeTickBookworm(nowMs);
   updateReader(nowMs);
   handleTouch(nowMs);
+  maybeSyncSntp(nowMs);
   updateWpmFeedback(nowMs);
   maybeSaveReadingPosition(nowMs);
 
@@ -2676,20 +2677,28 @@ void App::maybeStartWifiForClock() {
     return;
   }
   if (WiFi.status() == WL_CONNECTED) {
-    TimeService::requestSntpOnce();
-    return;
+    return;  // already up; maybeSyncSntp() will call requestSntpOnce() from main loop
   }
-  // Start SNTP only once we actually have an IP — avoids the race where
-  // configTime() fires before WiFi connects and the SNTP daemon gives up.
-  WiFi.onEvent([](WiFiEvent_t, WiFiEventInfo_t) {
-    Serial.println("[clock] WiFi got IP — starting SNTP");
-    TimeService::requestSntpOnce();
-  }, ARDUINO_EVENT_WIFI_STA_GOT_IP);
   WiFi.persistent(false);
   WiFi.setAutoReconnect(true);
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid.c_str(), config.wifiPassword.c_str());
   Serial.printf("[clock] WiFi begin SSID='%s'\n", ssid.c_str());
+}
+
+void App::maybeSyncSntp(uint32_t nowMs) {
+  // Poll every 5 s until SNTP syncs. Runs on the main task — safe for configTime/setenv.
+  if (TimeService::hasValidLocalTime()) {
+    return;
+  }
+  if (nowMs - lastSntpPollMs_ < 5000) {
+    return;
+  }
+  lastSntpPollMs_ = nowMs;
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("[clock] WiFi connected — requesting SNTP");
+    TimeService::requestSntpOnce();
+  }
 }
 
 String App::configuredWifiSsid() {

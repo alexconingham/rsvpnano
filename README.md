@@ -17,12 +17,12 @@ RSVP Nano is an open-source ESP32-S3 reading device for showing text one word at
 - USB mass-storage mode for copying books to the SD card.
 - Browser-based firmware installation plus in-browser library conversion, sidecar cleanup, and SD-card sync.
 
-## Book Worm (this fork)
+## Bookworm (this fork)
 
-This tree extends upstream RSVP Nano with a **Book Worm** companion screen:
+This tree extends upstream RSVP Nano with a **Bookworm** companion screen:
 
-- After boot the device shows the companion screen — a procedural creature, hunger/tiredness meters, XP bar, and a clock — instead of opening the last book immediately. Use **Resume** in the menu to continue your book. Toggle boot target in **Settings → Book Worm**.
-- **Book Worm** in the main menu returns to the companion: saves progress and unloads the book from RAM.
+- After boot the device shows the companion screen — a procedural creature, hunger/tiredness meters, XP bar, and a clock — instead of opening the last book immediately. Use **Resume** in the menu to continue your book. Toggle boot target in **Settings → Bookworm**.
+- **Bookworm** in the main menu returns to the companion: saves progress and unloads the book from RAM.
 - **Companion layout:** large creature on the left; right panel shows name, level, age, three meters (HGR hunger, TIR tiredness, XP), and three action buttons.
 - **PLAY / FEED / PET** (bottom-right buttons) reduce tiredness or hunger and start a 60-second XP boost — reading while boosted heals needs at 2× rate. Each action plays distinctive polyphonic chime sounds. Tap the creature to **boop** it.
 - **Sound:** Polyphonic audio feedback for all companion interactions — ascending chimes for play, warm tones for feed, playful bounces for pet, soft taps for boop, sad descending tones for illness, and celebratory ascending tones for evolution.
@@ -32,7 +32,7 @@ This tree extends upstream RSVP Nano with a **Book Worm** companion screen:
 - **Clock** shows local time via SNTP after Wi‑Fi connects (configure credentials in **Settings → Wi‑Fi**). Tap the clock badge to jump back to your book. Until SNTP syncs the clock shows `--:--`.
 - **Night Mode** inverts UI colors on the companion screen — toggle it by holding the `BOOT` button while viewing the companion.
 - Pet data is stored in NVS namespace `bworm` (separate from reading preferences).
-- **Settings → Book Worm:** Hibernate, Needs sim on/off, Evolution on/off, boot target, pet reset, mute, and Bookworm help.
+- **Settings → Bookworm:** Hibernate, Needs sim on/off, Evolution on/off, boot target, pet reset, mute, and Bookworm help.
 - Companion **creature** is **procedural** (mirrored random fill in an ellipse, inspired by [Dave Bollinger–style pixel spaceships](https://web.archive.org/web/20080228054410/http://www.davebollinger.com/works/pixelspaceships/) and [pixel-sprite-generator](https://github.com/zfedoran/pixel-sprite-generator)): deterministic from pet name, palette, and evolution stage.
 
 *(Optional) A standalone reader-facing manual to print or turn into a PDF lives in [`docs/COMPANION_GUIDE.md`](docs/COMPANION_GUIDE.md) — it is not shown inside the app.*
@@ -41,11 +41,11 @@ This tree extends upstream RSVP Nano with a **Book Worm** companion screen:
 
 ### Flash From The Browser
 
-The upstream RSVP Nano web flasher installs the base firmware without Book Worm:
+The upstream RSVP Nano web flasher installs the base firmware without Bookworm:
 
 <https://ionutdecebal.github.io/rsvpnano/>
 
-To install this fork (which includes Book Worm), build from source or use the OTA path from this repository's GitHub Releases once they are published (see [OTA Updates](#ota-updates)).
+To install this fork (which includes Bookworm), build from source or use the OTA path from this repository's GitHub Releases once they are published (see [OTA Updates](#ota-updates)).
 
 Use Chrome or Edge on desktop, connect the device over USB, and follow the installer prompts.
 
@@ -217,7 +217,7 @@ Main Menu
 |- Library
 |  |- Back
 |  `- Book list
-|- Book Worm          (returns to companion screen)
+|- Bookworm          (returns to companion screen)
 |- Settings
 |  |- Back
 |  |- Display
@@ -251,7 +251,7 @@ Main Menu
 |  |  |- Auto OTA
 |  |  |- Forget network
 |  |  `- Set time: HH:MM
-|  |- Book Worm
+|  |- Bookworm
 |  |  |- Back
 |  |  |- Hibernate: On/Off
 |  |  |- Needs sim: On/Off
@@ -303,7 +303,7 @@ Main Menu
 - `Forget network`: clear the stored Wi-Fi credentials from `Preferences`.
 - `Set time: HH:MM`: manually set the current time if Wi-Fi SNTP has not synced yet. The value is stored in NVS and restored on next boot.
 
-#### Book Worm
+#### Bookworm
 
 - `Hibernate`: put the companion into hibernation mode (disables needs simulation).
 - `Needs sim`: turn the hunger and tiredness simulation on or off.
@@ -392,7 +392,7 @@ pio test -e native_test
 
 Tests live in `test/test_pacing/` and cover word duration calculation (length tiers, syllable complexity, punctuation pauses, abbreviation detection, pacing scale), WPM clamping, and seek/scrub behaviour. A minimal `Arduino.h` shim in `test/support/` lets `ReadingLoop.cpp` compile on the host without the ESP32 SDK.
 
-Book Worm simulation tests (`test/test_bookworm/`) run with:
+Bookworm simulation tests (`test/test_bookworm/`) run with:
 
 ```sh
 pio test -e native_bookworm_test

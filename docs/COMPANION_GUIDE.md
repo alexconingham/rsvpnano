@@ -1,8 +1,8 @@
-# Book Worm — reader manual
+# Bookworm — reader manual
 
-**This document is not part of the device.** It is a standalone booklet for people who use RSVP Nano with Book Worm: read it on a phone or computer, **print** it, or **export to PDF** (for example open this file in a Markdown viewer or editor and print / “Save as PDF”). Nothing here is shown inside the app itself.
+**This document is not part of the device.** It is a standalone booklet for people who use RSVP Nano with Bookworm: read it on a phone or computer, **print** it, or **export to PDF** (for example open this file in a Markdown viewer or editor and print / “Save as PDF”). Nothing here is shown inside the app itself.
 
-It explains the desk companion: what you see, how it behaves, and what the **Settings → Book Worm** options do.
+It explains the desk companion: what you see, how it behaves, and what the **Settings → Bookworm** options do.
 
 ---
 
@@ -76,7 +76,7 @@ With **Needs sim** turned **Off** in settings, sickness mechanics do not run (se
 
 ---
 
-## Settings → Book Worm
+## Settings → Bookworm
 
 | Setting | What it does |
 |---------|----------------|
@@ -100,6 +100,6 @@ Dev firmware may add test entries (regenerate pet, force evolution).
 
 - **Clock shows `--:--`**: time not synced yet; connect Wi‑Fi so SNTP can run, or use a path that sets time. Age may not appear until then.
 - **Too frantic**: turn **Needs sim** **Off** for a decorative pet, or use **Hibernate** to rest without deleting anything.
-- **Want evolution ornaments back**: **Settings → Book Worm → Evolution: On** (stage updates from saved word count).
+- **Want evolution ornaments back**: **Settings → Bookworm → Evolution: On** (stage updates from saved word count).
 
 Firmware updates, books, and OTA are covered in the main RSVP Nano project documentation for builders and maintainers (for example the repository README if you obtained this file from source control).

@@ -864,7 +864,7 @@ inline const char *text(UiLanguage language, UiText key) {
         case UiText::Desk:
           return "Desk";
         case UiText::BookWorm:
-          return "Book Worm";
+          return "Bookworm";
         case UiText::Hibernate:
           return "Hibernate";
         case UiText::BootOpenCompanion:

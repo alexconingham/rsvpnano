@@ -5,7 +5,7 @@ This file orients future sessions on **RSVP Bookworm** firmware for the **Wavesh
 ## What this repo is
 
 - **Upstream base:** RSVP Nano — one-word RSVP reader, SD library, menus, OTA, optional USB MSC.
-- **This fork adds Book Worm:** companion screen after boot (procedural creature, H/B meters, desk actions), NVS-backed state, optional ES8311 desk SFX, hatch/time integration with Wi‑Fi.
+- **This fork adds Bookworm:** companion screen after boot (procedural creature, H/B meters, desk actions), NVS-backed state, optional ES8311 desk SFX, hatch/time integration with Wi‑Fi.
 - **Primary target board:** `esp32-s3-r8-opi` (PlatformIO) with pins and panel geometry in `src/board/BoardConfig.h`.
 
 ## Build and flash
@@ -14,7 +14,7 @@ This file orients future sessions on **RSVP Bookworm** firmware for the **Wavesh
 # Default env (USB MSC on; typical dev build)
 pio run -e waveshare_esp32s3_usb_msc
 
-# Book Worm dev menu extras (regenerate pet, +evolution)
+# Bookworm dev menu extras (regenerate pet, +evolution)
 pio run -e waveshare_esp32s3_usb_msc_bwdev
 
 # Without USB MSC
@@ -35,7 +35,7 @@ Monitor: `pio device monitor` (115200).
 | Panel / QSPI | `src/display/axs15231b.*` | Low-level display |
 | Touch | `src/input/TouchHandler.cpp` | AXS15231B packet layout; landscape mapping + `UI_ROTATED_180` |
 | Buttons | `src/input/ButtonHandler.*` | Active-low, pull-up |
-| Book Worm sim + persistence | `src/bookworm/*` | `BookWormStore` NVS namespace `bworm` |
+| Bookworm sim + persistence | `src/bookworm/*` | `BookWormStore` NVS namespace `bworm` |
 | Desk SFX (I2S + ES8311) | `src/audio/BookWormSound.*` | Init may need tuning vs Waveshare audio demos |
 | Storage / books | `src/storage/StorageManager.*` | `/books` on SD |
 | OTA | `src/update/OtaUpdater.h` + `docs/ota.conf.example` | |
@@ -65,10 +65,10 @@ Exiting the app from the menu: use **Resume**, **Desk**, **Library**, etc.; ther
 - Logical size **640×172** landscape; native panel dimensions and **`UI_ROTATED_180`** in `BoardConfig.h` affect coordinate transforms.
 - Companion desk strip and creature hit targets live in **`handleCompanionTouch`** (`App.cpp`); changes to touch packing in **`TouchHandler`** must stay consistent with AXS15231B reports.
 
-## Book Worm persistence
+## Bookworm persistence
 
 - Namespace **`bworm`** via **`Preferences`** (`BookWormStore`).
-- Reading progress / reader prefs remain separate from Book Worm state.
+- Reading progress / reader prefs remain separate from Bookworm state.
 - Optional **SNTP** after Wi‑Fi for hatch/clock; see `TimeService`.
 
 ## Tests (native)
